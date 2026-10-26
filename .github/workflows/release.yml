@@ -1,0 +1,87 @@
+# Builds MouseDrive on every push to main and publishes it as a new numbered release
+# (v0.1, v0.2...). The releases/latest page of the repository is always the newest.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  # Raise to start a new series (v1.1, v1.2...).
+  MAJOR: 0
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Next version
+        id: version
+        run: |
+          if [ -n "$(git tag --points-at HEAD --list 'v*')" ]; then
+            echo "This commit already has a release."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last=$(git tag --list "v$MAJOR.*" | sed "s/^v$MAJOR\.//" | grep -E '^[0-9]+$' | sort -n | tail -1 || true)
+          previous=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+          echo "version=$MAJOR.$(( ${last:-0} + 1 ))" >> "$GITHUB_OUTPUT"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-dotnet@v6
+        if: steps.version.outputs.skip != 'true'
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish
+        if: steps.version.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # AssemblyInfo.cs keeps 0.0.0 in git, which the app shows as a dev build.
+          sed -i -e "s/\"0\.0\.0\.0\"/\"$VERSION.0.0\"/" -e "s/\"0\.0\.0\"/\"$VERSION.0\"/" \
+            MouseDrive/Properties/AssemblyInfo.cs
+          dotnet publish MouseDrive/MouseDrive.csproj -c Release -o out/MouseDrive
+
+      - name: Zip
+        if: steps.version.outputs.skip != 'true'
+        shell: pwsh
+        run: Compress-Archive -Path out/MouseDrive -DestinationPath "MouseDrive-v${{ steps.version.outputs.version }}.zip"
+
+      - name: Create the release
+        if: steps.version.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PREVIOUS: ${{ steps.version.outputs.previous }}
+        run: |
+          {
+            echo "## Changes"
+            echo
+            if [ -n "$PREVIOUS" ]; then
+              git log --format='- %s (%h)' "$PREVIOUS..HEAD"
+            else
+              echo "- First release of MouseDrive."
+            fi
+            echo
+            echo "## Install"
+            echo
+            echo "Unzip \`MouseDrive-v$VERSION.zip\` anywhere you can write to (not Program Files) and run \`MouseDrive.exe\`."
+            echo "Needs the .NET 8 Desktop Runtime (x64) and vJoy (device 1). See \`MouseDrive_Manual.md\`."
+          } > notes.md
+          gh release create "v$VERSION" "MouseDrive-v$VERSION.zip" --target "$GITHUB_SHA" --latest \
+            --title "MouseDrive v$VERSION" --notes-file notes.md

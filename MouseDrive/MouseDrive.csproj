@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>MouseDrive</AssemblyName>
+    <RootNamespace>MouseDrive</RootNamespace>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>True</UseWindowsForms>
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>14.0</LangVersion>
+    <!-- "?" annotations are allowed (the lambdas use object?), without nullable flow warnings. -->
+    <Nullable>annotations</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\Brand\MouseDrive.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Brand\MouseDrive.ico" LogicalName="MouseDrive.ico" />
+    <None Include="..\third_party\vJoy\vJoyInterface.dll" Link="vJoyInterface.dll" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="MouseDrive_Manual.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

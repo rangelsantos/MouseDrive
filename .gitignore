@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+
+# IDE
+.vs/
+*.user
+
+# Local design mockups (not pushed)
+design/
+
+# The MouseYokeEnhanced clone this folder used to be (its history is on GitHub and in Desktop\MouseYokeEnhanced)
+_old-mouseyoke/

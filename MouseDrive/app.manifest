@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="MouseDrive.app"/>
+
+  <!-- Run at the user's integrity level: vJoy and the keyboard hook need no admin rights. A game
+       running as administrator, though, won't let a normal app's hook see its keys. -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
+  <!-- DPI awareness is set in code (Application.SetHighDpiMode(PerMonitorV2) in Program.cs),
+       so it is intentionally NOT set here (avoids the WFAC010 warning). -->
+</assembly>
