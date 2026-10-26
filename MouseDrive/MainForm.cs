@@ -709,10 +709,20 @@ public partial class MainForm : Form
 	}
 
 	// Mouse counts from center to full lock: 4000 at sensitivity 1, 100 at 100, on a geometric scale so
-	// each step feels the same. 640 at the default 50 is about 10 cm on a 1600 DPI mouse.
+	// each step feels the same. 644 at the default 50 is about 1 cm on a 1600 DPI mouse.
 	internal static double CountsToFullLock(int sensitivity)
 	{
 		return 4000.0 * Math.Pow(0.025, (double)(Math.Clamp(sensitivity, 1, 100) - 1) / 99.0);
+	}
+
+	// Until the mouse DPI is a setting, distances in the UI assume a common 1600 DPI mouse.
+	internal const double AssumedDpi = 1600.0;
+
+	private const double MmPerInch = 25.4;
+
+	internal static double FullLockMm(int sensitivity)
+	{
+		return CountsToFullLock(sensitivity) / AssumedDpi * MmPerInch;
 	}
 
 	private void Loop_Tick(object sender, EventArgs e)

@@ -83,10 +83,14 @@ There is no physical center on a mouse: if the wheel drifts off center, press **
 ## The tabs
 
 - **Drive** — what the game is receiving: the wheel, the steering in percent, the mouse input
-  before the response curve, and a lamp per vJoy button.
-- **Steering** — the feel, saved per profile:
+  before expo and deadzone, and a lamp per vJoy button.
+- **Steering** — the feel, saved per profile. On top, **Mouse to wheel** shows two rulers: mouse
+  travel from center in millimeters (on a 1600 DPI mouse) above, wheel lock below. The lines join
+  them at every 10% of lock, so you can see how far the mouse goes for each step: with Expo they
+  bunch toward the ends, and the Deadzone shows as an amber band. The ends of the mouse ruler are
+  full lock. While driving, a green line shows where the mouse and the wheel are now.
   - **Sensitivity** — how much mouse travel takes the wheel from center to full lock. The line
-    under it says how many mouse counts that is (a 1600 DPI mouse makes about 63 per centimeter).
+    under it says how many mouse counts that is (a 1600 DPI mouse makes about 630 per centimeter).
   - **Expo** — softer near center for small corrections, same full lock.
   - **Deadzone** — a band around center that gives no steering. Usually 0.
   - **Invert steering** — for a game that turns the wrong way.

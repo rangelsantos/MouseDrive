@@ -106,7 +106,7 @@ public partial class MainForm
 
 	private KeyLegend legend;
 
-	private CurveView curve;
+	private TravelRuler ruler;
 
 	private Slider tbSensitivity;
 
@@ -1191,13 +1191,14 @@ public partial class MainForm
 		TableLayoutPanel response = Card();
 		int rr = 0;
 		AddRow(response, ref rr, Header("Mouse to wheel", ScopeTag(perProfile: true)), SizeType.AutoSize, 0, fill: true, 6);
-		curve = new CurveView
+		ruler = new TravelRuler
 		{
 			Height = 90,
 			BackColor = Theme.Row,
 			Margin = new Padding(0, 0, 0, 8)
 		};
-		AddRow(response, ref rr, curve, SizeType.AutoSize, 0, fill: true);
+		toolTip.SetToolTip(ruler, "How far the mouse travels for each 10% of wheel lock, in mm on a " + MainForm.AssumedDpi + " DPI mouse");
+		AddRow(response, ref rr, ruler, SizeType.AutoSize, 0, fill: true);
 		tbSensitivity = AddSliderRow(response, ref rr, "Sensitivity", "less mouse travel", 1, 100, 50, "");
 		lblFullLock = new Label
 		{
@@ -1206,7 +1207,7 @@ public partial class MainForm
 			Font = Theme.Small,
 			Margin = new Padding(0, 0, 0, 6)
 		};
-		toolTip.SetToolTip(lblFullLock, "Raw mouse counts; a 1600 DPI mouse makes about 63 per centimeter");
+		toolTip.SetToolTip(lblFullLock, "Raw mouse counts; a 1600 DPI mouse makes about 630 per centimeter");
 		AddRow(response, ref rr, lblFullLock, SizeType.AutoSize, 0, fill: false);
 		tbExpo = AddSliderRow(response, ref rr, "Expo", "softer near center", 0, 90, 20, "%");
 		tbDeadzone = AddSliderRow(response, ref rr, "Deadzone", "around center", 0, 30, 0, "%");
@@ -1227,21 +1228,22 @@ public partial class MainForm
 		tbSensitivity.ValueChanged += (object? s, EventArgs e) =>
 		{
 			UpdateFullLock();
+			UpdateRuler();
 		};
 		tbExpo.ValueChanged += (object? s, EventArgs e) =>
 		{
-			UpdateCurve();
+			UpdateRuler();
 		};
 		tbDeadzone.ValueChanged += (object? s, EventArgs e) =>
 		{
-			UpdateCurve();
+			UpdateRuler();
 		};
 		return Scroller(t);
 	}
 
-	private void UpdateCurve()
+	private void UpdateRuler()
 	{
-		curve.SetCurve((double)tbDeadzone.Value / 100.0, (double)tbExpo.Value / 100.0);
+		ruler.SetCurve((double)tbDeadzone.Value / 100.0, (double)tbExpo.Value / 100.0, FullLockMm(tbSensitivity.Value));
 	}
 
 	private void UpdateFullLock()
@@ -2200,7 +2202,7 @@ public partial class MainForm
 		ReleaseHeldKeys();
 		CancelHotkeyCapture();
 		RefreshHotkeyUi();
-		UpdateCurve();
+		UpdateRuler();
 		UpdateFullLock();
 		RefreshProfileUi();
 		loading = false;
@@ -2245,7 +2247,7 @@ public partial class MainForm
 			break;
 		}
 		case 1:
-			curve.SetInput(wheel, active);
+			ruler.SetInput(wheel, active);
 			break;
 		case 2:
 			RefreshPedalUi();

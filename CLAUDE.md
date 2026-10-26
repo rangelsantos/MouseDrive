@@ -69,7 +69,7 @@ installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Neve
 |---|---|
 | `MainForm.cs` | Logic: steering loop, Raw Input, vJoy setup and checks, key handling, profile actions, HUD visibility |
 | `MainForm.Ui.cs` | The screens, built in code (no designer): header, tabs Drive/Steering/Pedals/Keys/HUD, status bar, compact window, tray, hotkey and button lists, ⚙ menu and About |
-| `DarkControls.cs` | Owner-drawn controls: `Slider`, `ToggleSwitch`, `Segmented`, `TabButton`, `ActivateButton`, `SteeringMonitor`, `CurveView`, `LampStrip`, `KeyLegend`, `Stepper`, `HudPreview`, dark menus |
+| `DarkControls.cs` | Owner-drawn controls: `Slider`, `ToggleSwitch`, `Segmented`, `TabButton`, `ActivateButton`, `SteeringMonitor`, `TravelRuler`, `LampStrip`, `KeyLegend`, `Stepper`, `HudPreview`, dark menus |
 | `MainForm.Pedals.cs` / `MainForm.Pedals.Ui.cs` | Pedal input/output and the dedicated Pedals tab |
 | `PedalSettings.cs` / `PedalState.cs` / `PedalControls.cs` | Per-profile pedal settings, elapsed-time ramps, live meters and response graph |
 | `HudRenderer.cs` | Draws the HUD styles (`HudStyle`: Wheel, Bar) and the Drive monitor from a `HudState` |

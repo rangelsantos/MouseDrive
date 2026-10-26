@@ -15,7 +15,7 @@ games without mouse steering of their own.
 - **Mouse = wheel.** Movement is read straight from the mouse (Raw Input), so the pointer
   position, screen size and Windows pointer acceleration don't matter.
 - **Tune the feel.** Sensitivity, expo, deadzone, smoothing and optional self-centering, with a
-  live response curve.
+  live ruler of mouse travel against wheel lock.
 - **Pointer stays put.** While driving it is held in the middle of the main screen and hidden.
 - **Extra buttons.** Map keys or mouse buttons (right, middle, 4, 5) to vJoy buttons for
   shifting, pit limiter, lights…

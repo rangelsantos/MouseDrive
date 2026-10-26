@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.Globalization;
 using System.Windows.Forms;
 
 namespace MouseDrive;
@@ -913,38 +914,61 @@ internal sealed class SteeringMonitor : PaintedControl
 	}
 }
 
-// The response curve on the Steering tab: Shape() for the current deadzone/expo, with a dot for the live input.
-internal sealed class CurveView : PaintedControl
+// Mouse to wheel on the Steering tab: a ruler of mouse travel over a ruler of wheel lock, joined at every
+// 10% of lock by Shape() for the current deadzone/expo. Mouse input is relative, so there is no position
+// axis to plot a curve against; the rulers show how far the mouse goes for each step of lock instead.
+internal sealed class TravelRuler : PaintedControl
 {
-	private const float W = 300f;
+	private const float W = 432f;
 
-	private const float H = 64f;
+	private const float H = 90f;
 
-	private static readonly Font Label = new Font("Segoe UI", 7.5f, FontStyle.Regular, GraphicsUnit.Pixel);
+	private const float RulerLeft = 56f;
 
-	private static readonly Font Title = new Font("Segoe UI", 8f, FontStyle.Bold, GraphicsUnit.Pixel);
+	private const float RulerRight = 418f;
+
+	private const float RulerCenter = (RulerLeft + RulerRight) / 2f;
+
+	private const float RulerHalf = (RulerRight - RulerLeft) / 2f;
+
+	private const float MouseY = 26f;
+
+	private const float WheelY = 66f;
+
+	private const int FanSteps = 10;
+
+	private static readonly double[] TickSteps = new double[6] { 0.5, 1.0, 2.0, 5.0, 10.0, 20.0 };
+
+	private const int MaxTicksPerSide = 6;
+
+	private static readonly Font Label = new Font("Segoe UI", 9.5f, FontStyle.Regular, GraphicsUnit.Pixel);
+
+	private static readonly Font Title = new Font("Segoe UI", 10f, FontStyle.Bold, GraphicsUnit.Pixel);
 
 	private double deadzone;
 
 	private double expo;
 
+	private double fullLockMm = 10.0;
+
 	private double input;
 
 	private bool hasInput;
 
-	public CurveView()
+	public TravelRuler()
 	{
-		AccessibleName = "Response curve";
-		Text = "Response curve";
+		AccessibleName = "Mouse to wheel";
+		Text = "Mouse to wheel";
 		AccessibleRole = AccessibleRole.Chart;
 	}
 
-	public void SetCurve(double deadzone, double expo)
+	public void SetCurve(double deadzone, double expo, double fullLockMm)
 	{
-		if (deadzone != this.deadzone || expo != this.expo)
+		if (deadzone != this.deadzone || expo != this.expo || fullLockMm != this.fullLockMm)
 		{
 			this.deadzone = deadzone;
 			this.expo = expo;
+			this.fullLockMm = fullLockMm;
 			Invalidate();
 		}
 	}
@@ -961,12 +985,40 @@ internal sealed class CurveView : PaintedControl
 
 	private static float X(double v)
 	{
-		return 150f + (float)v * 140f;
+		return RulerCenter + (float)v * RulerHalf;
 	}
 
-	private static float Y(double v)
+	// The wheel position (-1..1) that gives this lock; Shape() only rises with |x|, so halving the range finds it.
+	private double Inverse(double share)
 	{
-		return 32f - (float)v * 28f;
+		double lo = 0.0;
+		double hi = 1.0;
+		for (int i = 0; i < 30; i++)
+		{
+			double mid = (lo + hi) / 2.0;
+			if (MainForm.Shape(mid, deadzone, expo) < Math.Abs(share))
+			{
+				lo = mid;
+			}
+			else
+			{
+				hi = mid;
+			}
+		}
+		return (double)Math.Sign(share) * hi;
+	}
+
+	// The smallest round step that keeps the mouse ruler to a few labels per side.
+	private double TickStep()
+	{
+		foreach (double step in TickSteps)
+		{
+			if (fullLockMm / step <= (double)MaxTicksPerSide)
+			{
+				return step;
+			}
+		}
+		return TickSteps[TickSteps.Length - 1];
 	}
 
 	protected override void OnPaint(PaintEventArgs e)
@@ -979,51 +1031,60 @@ internal sealed class CurveView : PaintedControl
 		g.ScaleTransform(s, s);
 		if (deadzone > 0.0)
 		{
-			using SolidBrush band = new SolidBrush(Color.FromArgb(26, 255, 190, 60));
-			float w = (float)deadzone * 140f;
-			g.FillRectangle(band, 150f - w, 4f, w * 2f, 56f);
+			using SolidBrush band = new SolidBrush(Color.FromArgb(40, Theme.Amber));
+			g.FillRectangle(band, X(0.0 - deadzone), MouseY - 4f, X(deadzone) - X(0.0 - deadzone), 8f);
 		}
-		using (Pen axis = new Pen(Color.FromArgb(52, 52, 63), 1f))
+		for (int i = -FanSteps; i <= FanSteps; i++)
 		{
-			g.DrawLine(axis, 10f, 32f, 290f, 32f);
-			g.DrawLine(axis, 150f, 4f, 150f, 60f);
+			double share = (double)i / (double)FanSteps;
+			bool major = i % 5 == 0;
+			using Pen fan = new Pen(Color.FromArgb(major ? 120 : 55, Theme.Accent), major ? 1.4f : 1f);
+			g.DrawLine(fan, X(Inverse(share)), MouseY + 4f, X(share), WheelY - 4f);
 		}
-		using (Pen lin = new Pen(Color.FromArgb(85, 85, 106), 1f)
+		using (Pen rule = new Pen(Theme.Muted, 1.2f))
 		{
-			DashPattern = new float[2] { 3f, 4f }
-		})
-		{
-			g.DrawLine(lin, 10f, 60f, 290f, 4f);
+			g.DrawLine(rule, RulerLeft, MouseY, RulerRight, MouseY);
+			g.DrawLine(rule, RulerLeft, WheelY, RulerRight, WheelY);
 		}
-		PointF[] pts = new PointF[101];
-		for (int i = 0; i <= 100; i++)
+		using (Pen tick = new Pen(Theme.Muted))
 		{
-			double x = -1.0 + (double)i / 50.0;
-			pts[i] = new PointF(X(x), Y(MainForm.Shape(x, deadzone, expo)));
-		}
-		using (Pen curve = new Pen(Theme.Accent, 2f))
-		{
-			g.DrawLines(curve, pts);
-		}
-		using (SolidBrush lb = new SolidBrush(Color.FromArgb(106, 106, 120)))
-		{
-			using SolidBrush tb = new SolidBrush(Theme.Muted);
-			g.DrawString("RESPONSE", Title, tb, 8f, 2f);
-			g.DrawString("output", Label, lb, 154f, 2f);
-			StringFormat right = new StringFormat
+			using SolidBrush lb = new SolidBrush(Color.FromArgb(106, 106, 120));
+			using StringFormat mid = new StringFormat
 			{
-				Alignment = StringAlignment.Far
+				Alignment = StringAlignment.Center
 			};
-			g.DrawString("mouse", Label, lb, 290f, 34f, right);
-			g.DrawString("dashed = linear", Label, lb, 290f, 49f, right);
+			double step = TickStep();
+			int perSide = (int)Math.Floor(fullLockMm / step + 1E-09);
+			for (int i = -perSide; i <= perSide; i++)
+			{
+				float x = X((double)i * step / fullLockMm);
+				g.DrawLine(tick, x, MouseY - 4f, x, MouseY);
+				g.DrawString(Math.Abs((double)i * step).ToString("0.#", CultureInfo.InvariantCulture), Label, lb, x, MouseY - 16f, mid);
+			}
+			for (int i = -4; i <= 4; i++)
+			{
+				float x = X((double)i / 4.0);
+				g.DrawLine(tick, x, WheelY, x, WheelY + 4f);
+				g.DrawString(Math.Abs(i * 25) + ((i == 0) ? "" : "%"), Label, lb, x, WheelY + 4f, mid);
+			}
+			using SolidBrush tb = new SolidBrush(Theme.Muted);
+			g.DrawString("MOUSE", Title, tb, 4f, MouseY - 7f);
+			g.DrawString("mm", Label, lb, 4f, MouseY + 5f);
+			g.DrawString("WHEEL", Title, tb, 4f, WheelY - 7f);
+			g.DrawString("lock", Label, lb, 4f, WheelY + 5f);
 		}
 		if (hasInput)
 		{
 			double clamped = Math.Min(Math.Max(input, -1.0), 1.0);
-			float dx = X(clamped);
-			float dy = Y(MainForm.Shape(clamped, deadzone, expo));
+			float top = X(clamped);
+			float bottom = X(MainForm.Shape(clamped, deadzone, expo));
+			using (Pen link = new Pen(Theme.Green, 2f))
+			{
+				g.DrawLine(link, top, MouseY, bottom, WheelY);
+			}
 			using SolidBrush dot = new SolidBrush(Theme.Green);
-			g.FillEllipse(dot, dx - 3.5f, dy - 3.5f, 7f, 7f);
+			g.FillEllipse(dot, top - 3.5f, MouseY - 3.5f, 7f, 7f);
+			g.FillEllipse(dot, bottom - 3.5f, WheelY - 3.5f, 7f, 7f);
 		}
 	}
 }
