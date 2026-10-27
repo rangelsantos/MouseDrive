@@ -47,6 +47,8 @@ public partial class MainForm
 
 	private const int FullWidth = 480;
 
+	private const float HudOptionWidth = 180f;
+
 	// The full window is resizable in height only; the pages scroll.
 	private const int DefaultHeight = 576;
 
@@ -150,9 +152,21 @@ public partial class MainForm
 
 	private Segmented segStyle;
 
+	private Segmented segWheel;
+
+	private Caption capWheel;
+
+	private ToggleSwitch swHudZoom;
+
 	private Slider tbHudSize;
 
 	private Slider tbHudOpacity;
+
+	private Slider tbHudBackground;
+
+	private readonly Segmented[] segHudPedals = new Segmented[3];
+
+	private readonly Caption[] capHudPedals = new Caption[3];
 
 	private ToggleSwitch swShowHud;
 
@@ -2101,18 +2115,35 @@ public partial class MainForm
 		AddRow(card, ref cr, Header("Style", ScopeTag(perProfile: false)), SizeType.AutoSize, 0, fill: true, 6);
 		segStyle = new Segmented
 		{
-			Items = new string[2] { "Wheel", "Bar" },
+			Items = new string[4] { "Full", "Classic", "Column", "Minimal" },
 			Text = "HUD style",
 			AccessibleName = "HUD style"
 		};
 		segStyle.SelectedIndexChanged += (object? s, EventArgs e) =>
 		{
 			settings.HudStyle = (HudStyle)segStyle.SelectedIndex;
-			overlay?.SetStyle(settings.HudStyle, settings.HudNumbers);
-			ConfigurePreview();
-			SaveSettingsSoon();
+			ApplyLook();
 		};
-		AddRow(card, ref cr, segStyle, SizeType.AutoSize, 0, fill: true, 6);
+		AddRow(card, ref cr, segStyle, SizeType.AutoSize, 0, fill: true, 8);
+		capWheel = new Caption
+		{
+			Text = "Wheel",
+			Hint = "Full and Classic"
+		};
+		segWheel = AddOptionRow(card, ref cr, capWheel, new string[2] { "Classic", "GT" }, "HUD wheel");
+		toolTip.SetToolTip(segWheel, "Classic: a wood-rim wheel of an old sports car. GT: a modern race-car wheel");
+		segWheel.SelectedIndexChanged += (object? s, EventArgs e) =>
+		{
+			settings.HudWheel = (HudWheel)segWheel.SelectedIndex;
+			ApplyLook();
+		};
+		swHudZoom = Switch("Wheel zoom", "only the top 20% of the rim", (object? s, EventArgs e) =>
+		{
+			settings.HudZoom = swHudZoom.Checked;
+			ApplyLook();
+		});
+		swHudZoom.Margin = new Padding(0, 0, 0, 6);
+		AddRow(card, ref cr, swHudZoom, SizeType.AutoSize, 0);
 		// Size is global and lives in overlay.cfg with the position.
 		tbHudSize = AddSliderRow(card, ref cr, "Size", null, OverlayForm.MinSizePercent, OverlayForm.MaxSizePercent, OverlayForm.LoadSizePercent(), "%", autosave: false);
 		tbHudSize.DefaultValue = 100;
@@ -2131,7 +2162,35 @@ public partial class MainForm
 			ConfigurePreview();
 			SaveSettingsSoon();
 		};
+		tbHudBackground = AddSliderRow(card, ref cr, "Background", "0% = outlines only", 0, 100, 100, "%", autosave: false);
+		toolTip.SetToolTip(tbHudBackground, "The panel behind the HUD. Below 50%, text and marks get a dark outline so they still read");
+		tbHudBackground.ValueChanged += (object? s, EventArgs e) =>
+		{
+			settings.HudBackground = tbHudBackground.Value;
+			ApplyLook();
+		};
 		AddRow(t, ref row, card, SizeType.AutoSize, 0);
+		TableLayoutPanel pedalCard = Card();
+		int pc = 0;
+		AddRow(pedalCard, ref pc, Header("Pedals on HUD"), SizeType.AutoSize, 0, fill: false, 6);
+		for (int i = 0; i < segHudPedals.Length; i++)
+		{
+			int index = i;
+			capHudPedals[i] = new Caption
+			{
+				Text = PedalNames[i],
+				Hint = " "
+			};
+			segHudPedals[i] = AddOptionRow(pedalCard, ref pc, capHudPedals[i], new string[3] { "Auto", "Show", "Hide" }, PedalNames[i] + " on HUD");
+			toolTip.SetToolTip(segHudPedals[i], "Auto shows it when this profile uses the pedal");
+			segHudPedals[i].SelectedIndexChanged += (object? s, EventArgs e) =>
+			{
+				SetHudPedal(index, (HudElementMode)segHudPedals[index].SelectedIndex);
+				RefreshHudElementHints();
+				SaveSettingsSoon();
+			};
+		}
+		AddRow(t, ref row, pedalCard, SizeType.AutoSize, 0);
 		TableLayoutPanel display = Card();
 		int dr = 0;
 		AddRow(display, ref dr, Header("Display"), SizeType.AutoSize, 0, fill: false, 6);
@@ -2139,12 +2198,10 @@ public partial class MainForm
 		{
 			SetShowHud(swShowHud.Checked);
 		});
-		swHudNumbers = Switch("Show numbers", "steering in percent", (object? s, EventArgs e) =>
+		swHudNumbers = Switch("Show numbers", "steering and pedals", (object? s, EventArgs e) =>
 		{
 			settings.HudNumbers = swHudNumbers.Checked;
-			overlay?.SetStyle(settings.HudStyle, settings.HudNumbers);
-			ConfigurePreview();
-			SaveSettingsSoon();
+			ApplyLook();
 		});
 		swHudFade = Switch("Fade when straight", "dims at center", (object? s, EventArgs e) =>
 		{
@@ -2209,13 +2266,120 @@ public partial class MainForm
 
 	private void ConfigurePreview()
 	{
-		hudPreview.Configure(settings.HudStyle, settings.HudNumbers, settings.HudOpacity, tbHudSize.Value);
+		hudPreview.Configure(settings.Look, settings.HudOpacity, tbHudSize.Value);
+	}
+
+	// Style, wheel, zoom, numbers and background all change the drawing; the wheel options only apply to the
+	// styles that have one.
+	private void ApplyLook()
+	{
+		bool hasWheel = settings.Look.HasWheel;
+		segWheel.Enabled = hasWheel;
+		capWheel.Dim = !hasWheel;
+		swHudZoom.Enabled = hasWheel;
+		if (loading)
+		{
+			return;
+		}
+		overlay?.SetLook(settings.Look);
+		ConfigurePreview();
+		SaveSettingsSoon();
+	}
+
+	// One line: a caption with a hint on the left, a small segmented choice on the right.
+	private Segmented AddOptionRow(TableLayoutPanel t, ref int row, Caption caption, string[] items, string name)
+	{
+		TableLayoutPanel line = new TableLayoutPanel
+		{
+			ColumnCount = 2,
+			AutoSize = true,
+			AutoSizeMode = AutoSizeMode.GrowAndShrink,
+			BackColor = t.BackColor,
+			Margin = new Padding(0, 0, 0, 4),
+			ColumnStyles =
+			{
+				new ColumnStyle(SizeType.Percent, 100f),
+				new ColumnStyle(SizeType.Absolute, HudOptionWidth)
+			}
+		};
+		caption.BackColor = t.BackColor;
+		caption.Dock = DockStyle.Fill;
+		caption.Margin = Padding.Empty;
+		Segmented seg = new Segmented
+		{
+			Items = items,
+			Text = name,
+			AccessibleName = name,
+			Height = 30,
+			Dock = DockStyle.Fill,
+			Margin = new Padding(0, 1, 0, 1)
+		};
+		line.Controls.Add(caption, 0, 0);
+		line.Controls.Add(seg, 1, 0);
+		AddRow(t, ref row, line, SizeType.AutoSize, 0, fill: true, 4);
+		return seg;
+	}
+
+	private HudElementMode GetHudPedal(int index) => index switch
+	{
+		0 => settings.HudThrottle,
+		1 => settings.HudBrake,
+		_ => settings.HudClutch
+	};
+
+	private void SetHudPedal(int index, HudElementMode mode)
+	{
+		switch (index)
+		{
+		case 0:
+			settings.HudThrottle = mode;
+			break;
+		case 1:
+			settings.HudBrake = mode;
+			break;
+		default:
+			settings.HudClutch = mode;
+			break;
+		}
+	}
+
+	// The hints say what Auto does with the active profile right now, so a hidden pedal doesn't look like a bug.
+	private void RefreshHudElementHints()
+	{
+		if (capHudPedals[0] == null)
+		{
+			return;
+		}
+		for (int i = 0; i < capHudPedals.Length; i++)
+		{
+			PedalSettings config = PedalConfig(i);
+			string auto = ((!config.Enabled) ? "Hidden: pedal off in this profile" : ((config.Vk == 0) ? "Hidden: no key set" : ("Shown: pedal on, key " + Profile.KeyName(config.Vk))));
+			string hint = GetHudPedal(i) switch
+			{
+				HudElementMode.Show => "Always shown",
+				HudElementMode.Hide => "Always hidden",
+				_ => auto,
+			};
+			if (capHudPedals[i].Hint != hint)
+			{
+				capHudPedals[i].Hint = hint;
+			}
+		}
 	}
 
 	private void ApplySettingsToUi()
 	{
 		loading = true;
 		segStyle.SelectedIndex = (int)settings.HudStyle;
+		segWheel.SelectedIndex = (int)settings.HudWheel;
+		swHudZoom.Checked = settings.HudZoom;
+		tbHudBackground.Value = settings.HudBackground;
+		for (int i = 0; i < segHudPedals.Length; i++)
+		{
+			segHudPedals[i].SelectedIndex = (int)GetHudPedal(i);
+		}
+		RefreshHudElementHints();
+		ApplyLook();
 		tbHudOpacity.Value = settings.HudOpacity;
 		swShowHud.Checked = settings.ShowHud;
 		swShowHudDrive.Checked = settings.ShowHud;
@@ -2250,6 +2414,7 @@ public partial class MainForm
 		RefreshHotkeyUi();
 		UpdateRuler();
 		UpdateFullLock();
+		RefreshHudElementHints();
 		RefreshProfileUi();
 		loading = false;
 		lblSaved.Text = "Saved";

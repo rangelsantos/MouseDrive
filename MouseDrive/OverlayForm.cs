@@ -72,9 +72,7 @@ public class OverlayForm : Form
 
 	private HudState state;
 
-	private HudStyle style;
-
-	private bool numbers = true;
+	private HudLook look;
 
 	private int opacity = 90;
 
@@ -147,10 +145,9 @@ public class OverlayForm : Form
 
 	// The style comes in here so the first size is already right: the saved position is the top-left
 	// corner, and resizing afterwards (which keeps the center) would shift the HUD on every start.
-	public OverlayForm(HudStyle style, bool numbers, HudState state)
+	public OverlayForm(HudLook look, HudState state)
 	{
-		this.style = style;
-		this.numbers = numbers;
+		this.look = look;
 		this.state = state;
 		FormBorderStyle = FormBorderStyle.None;
 		ShowInTaskbar = false;
@@ -161,7 +158,7 @@ public class OverlayForm : Form
 		Location = LoadPosition() ?? DefaultLocation();
 	}
 
-	private Size HudLogicalSize => HudRenderer.LogicalSize(style, numbers);
+	private Size HudLogicalSize => HudRenderer.LogicalSize(look);
 
 	public static bool Straight(HudState s)
 	{
@@ -274,13 +271,21 @@ public class OverlayForm : Form
 		}
 	}
 
-	public void SetStyle(HudStyle style, bool numbers)
+	public void SetLook(HudLook look)
 	{
-		if (style != this.style || numbers != this.numbers)
+		if (look == this.look)
 		{
-			this.style = style;
-			this.numbers = numbers;
+			return;
+		}
+		bool resized = HudRenderer.LogicalSize(look) != HudLogicalSize;
+		this.look = look;
+		if (resized)
+		{
 			Relayout(keepCenter: true);
+		}
+		else
+		{
+			Render(force: true);
 		}
 	}
 
@@ -363,7 +368,7 @@ public class OverlayForm : Form
 	private string FrameKey()
 	{
 		HudState s = state;
-		return string.Format(CultureInfo.InvariantCulture, "{0:F3}|{1}|{2:F2}|{3}|{4}", s.Steering, s.Active, fade, ToastActive ? toast : "", s.ToggleKey);
+		return string.Format(CultureInfo.InvariantCulture, "{0:F3}|{1}|{2:F2}|{3}|{4}|{5:F3}|{6:F3}|{7:F3}|{8}{9}{10}|{11}", s.Steering, s.Active, fade, ToastActive ? toast : "", s.ToggleKey, s.Throttle, s.Brake, s.Clutch, s.ShowThrottle, s.ShowBrake, s.ShowClutch, s.Profile);
 	}
 
 	private void Render(bool force)
@@ -392,7 +397,7 @@ public class OverlayForm : Form
 			{
 				DrawMoveFrame(g, ls, hs);
 			}
-			HudRenderer.Draw(g, style, state, numbers);
+			HudRenderer.Draw(g, look, state);
 			if (ToastActive)
 			{
 				HudRenderer.DrawToast(g, toast, hs);

@@ -15,6 +15,12 @@ public partial class MainForm
 		_ => profile.Clutch
 	};
 
+	// The HUD follows the pedal as it moves, standby included, like the preview on the Pedals tab.
+	private double PedalForce(int index) => PedalConfig(index).Enabled ? pedals[index].Value : 0;
+
+	internal static bool PedalOnHud(HudElementMode mode, PedalSettings config) =>
+		mode == HudElementMode.Show || (mode == HudElementMode.Auto && config.Enabled && config.Vk != 0);
+
 	private void AcquirePedalAxes()
 	{
 		for (int i = 0; i < pedals.Length; i++)

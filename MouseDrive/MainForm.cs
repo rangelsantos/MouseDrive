@@ -793,7 +793,14 @@ public partial class MainForm : Form
 		{
 			Steering = steering,
 			Active = active,
-			ToggleKey = ((profile.ToggleVk != 0) ? Profile.KeyName(profile.ToggleVk) : "")
+			ToggleKey = ((profile.ToggleVk != 0) ? Profile.KeyName(profile.ToggleVk) : ""),
+			Profile = profile.Name,
+			Throttle = PedalForce(0),
+			Brake = PedalForce(1),
+			Clutch = PedalForce(2),
+			ShowThrottle = PedalOnHud(settings.HudThrottle, profile.Throttle),
+			ShowBrake = PedalOnHud(settings.HudBrake, profile.Brake),
+			ShowClutch = PedalOnHud(settings.HudClutch, profile.Clutch)
 		};
 	}
 
@@ -801,7 +808,7 @@ public partial class MainForm : Form
 	{
 		if (overlay == null || overlay.IsDisposed)
 		{
-			overlay = new OverlayForm(settings.HudStyle, settings.HudNumbers, CurrentHudState());
+			overlay = new OverlayForm(settings.Look, CurrentHudState());
 			overlay.SetOpacityPercent(settings.HudOpacity);
 			overlay.SetFade(settings.HudFade);
 			overlay.DoneClicked += EndHudPosition;

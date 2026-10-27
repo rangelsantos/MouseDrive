@@ -16,6 +16,7 @@ internal static class Program
 	{
 		Application.EnableVisualStyles();
 		PedalTests.Run(Check);
+		HudTests.Run(Check);
 		Check("Reject a profile containing a null binding", () =>
 		{
 			string path = Path.Combine(AppContext.BaseDirectory, "invalid.json");
@@ -176,6 +177,7 @@ internal static class Program
 			finally { File.Delete(path); }
 		});
 		PedalIntegrationTests.Run(form, Check);
+		HudTests.RunForm(form, Check);
 		Call(form, "ExitApp");
 		Console.WriteLine($"Failures: {failures}");
 		return (failures == 0) ? 0 : 1;

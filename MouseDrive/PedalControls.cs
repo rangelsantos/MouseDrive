@@ -18,6 +18,8 @@ internal sealed class PedalPicker : PaintedControl
 	private const int BarHeight = 80;
 	private const int KeyTop = 140;
 	private const int KeyHeight = 22;
+	private const float BorderPen = 1.5f;
+	private const float FocusPen = 2.5f;
 
 	private readonly string[] names;
 	private readonly string[] keys = { "", "", "" };
@@ -139,15 +141,18 @@ internal sealed class PedalPicker : PaintedControl
 		for (int column = 0; column < Order.Length; column++)
 		{
 			int i = Order[column];
-			RectangleF cell = new RectangleF(column * (ColumnWidth + Gap), 0, ColumnWidth, Height - 1);
+			RectangleF cell = new RectangleF(column * (ColumnWidth + Gap), 0, ColumnWidth, Height);
+			// The border is drawn centered on its path, so the outer columns stay inside the control by half
+			// the widest pen; otherwise the throttle's right edge and every top edge get clipped.
+			RectangleF edge = RectangleF.Inflate(cell, -FocusPen / 2, -FocusPen / 2);
 			if (i == selected || i == hot)
 			{
-				FillRounded(g, Theme.RowHover, cell, 4);
+				FillRounded(g, Theme.RowHover, edge, 4);
 			}
 			if (i == selected)
 			{
-				using System.Drawing.Drawing2D.GraphicsPath border = HudRenderer.Rounded(cell, 4);
-				using Pen pen = new Pen(Theme.Accent, (Focused && ShowFocusCues) ? 2.5f : 1.5f);
+				using System.Drawing.Drawing2D.GraphicsPath border = HudRenderer.Rounded(edge, 4);
+				using Pen pen = new Pen(Theme.Accent, (Focused && ShowFocusCues) ? FocusPen : BorderPen);
 				g.DrawPath(pen, border);
 			}
 			int cx = (int)(cell.X + cell.Width / 2);
@@ -266,8 +271,11 @@ internal sealed class PedalCurve : PaintedControl
 		Rectangle strip = new Rectangle(plot.Left, plot.Bottom + 22, (int)(X(keyUp) - plot.Left), 15);
 		FillRounded(g, Color.FromArgb(60, Theme.Accent), strip, 3);
 		TextRenderer.DrawText(g, key + " held", Theme.Small, strip, Theme.Text, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
-		TextRenderer.DrawText(g, "released", Theme.Small, new Rectangle(strip.Right, strip.Y, plot.Right - strip.Right, strip.Height), Theme.Faint,
-			TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+		Rectangle after = new Rectangle(strip.Right, strip.Y, plot.Right - strip.Right, strip.Height);
+		if (TextRenderer.MeasureText("released", Theme.Small).Width <= after.Width)
+		{
+			TextRenderer.DrawText(g, "released", Theme.Small, after, Theme.Faint, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+		}
 		using (Pen limit = new Pen(Color.FromArgb(110, Theme.Amber)) { DashPattern = new[] { 3f, 3f } })
 		{
 			g.DrawLine(limit, plot.Left, Y(maximum), plot.Right, Y(maximum));

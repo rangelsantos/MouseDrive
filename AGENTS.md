@@ -15,7 +15,7 @@ The user writes in Portuguese (pt-BR). The app UI and the manual are in English;
 ## Status and roadmap
 
 - **Done (foundation):** new repo, steering on X from Raw Input deltas, cursor locked to one pixel,
-  sensitivity/expo/deadzone/smoothing/self-centering, center key, vJoy buttons, Wheel/Bar HUD,
+  sensitivity/expo/deadzone/smoothing/self-centering, center key, vJoy buttons, HUD in four styles with pedals,
   profiles, tray, compact window, progressive throttle/brake/clutch on Y/Z/Rz with a Pedals tab.
 - **Next (MVP):** steer from `WM_INPUT` directly (lower latency than the ~64 Hz timer), sensitivity in
   real units (cm or degrees, with the mouse DPI), an axis sweep to help binding in games, testing in
@@ -72,11 +72,12 @@ installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Neve
 | `DarkControls.cs` | Owner-drawn controls: `Slider`, `RangeSlider`, `ToggleSwitch`, `Segmented`, `TabButton`, `ActivateButton`, `SteeringMonitor`, `TravelRuler`, `LampStrip`, `KeyLegend`, `Stepper`, `HudPreview`, dark menus |
 | `MainForm.Pedals.cs` / `MainForm.Pedals.Ui.cs` | Pedal input/output and the dedicated Pedals tab |
 | `PedalSettings.cs` / `PedalState.cs` / `PedalControls.cs` | Per-profile pedal settings, elapsed-time ramps, the pedal selector (`PedalPicker`, live bars) and the force-over-time graph |
-| `HudRenderer.cs` | Draws the HUD styles (`HudStyle`: Wheel, Bar) and the Drive monitor from a `HudState` |
+| `HudRenderer.cs` | Draws the HUD styles (`HudStyle`: Full, Classic, Column, Minimal) from a `HudLook` (app-wide options) and a `HudState` (live values), and the Drive monitor |
+| `HudWheels.cs` | The HUD's textured wheels (`HudWheel`: Classic wood rim, GT race car), drawn from procedural textures and cached in layers per pixel size |
 | `OverlayForm.cs` | Click-through HUD: per-pixel-alpha layered window (`UpdateLayeredWindow`), never activates; position mode with Done; notices |
 | `Theme.cs` | Palette and fonts |
 | `BrandIcon.cs` | Window and tray icons from the embedded `MouseDrive.ico`, and the "driving" variant with a red dot |
-| `AppSettings.cs` | App-wide settings in `<exe>\settings.json` (HUD, on top, tray, compact, window height) |
+| `AppSettings.cs` | App-wide settings in `<exe>\settings.json` (HUD look and pedals on HUD, on top, tray, compact, window height); maps the old style names Wheel/Bar on load |
 | `Profile.cs` / `ProfileManager.cs` | Per-car/game settings, JSON files in `<exe>\Profiles\`, `_active.txt`; import/export, rename |
 | `Hotkey.cs` | The rebindable commands (`Hotkey.All`) |
 | `KeyboardHook.cs` | `WH_KEYBOARD_LL` hook; drops auto-repeat; `ReleaseStaleKeys()`; mouse buttons join through `MouseButton()` |
@@ -102,6 +103,10 @@ installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Neve
 - **Stuck keys:** `KeyboardHook.ReleaseStaleKeys()` runs every tick and fires the missing `KeyUp`.
 - **Live UI:** every third tick the loop builds a `HudState`, updates the overlay and calls
   `RefreshLiveUi()`, which only touches the visible tab.
+- **HUD drawing:** `OverlayForm` redraws only when `FrameKey()` changes, at most every third tick, on the UI
+  thread. A textured wheel costs ~10 ms from scratch, so `HudWheels` draws it once per pixel size into layers
+  and a frame only turns them (the light layers stay fixed). Keep a frame cheap: a test fails above 8 ms.
+  Pedals on the HUD use `HudElementMode` (Auto = enabled with a key) via `MainForm.PedalOnHud()`.
 - **HUD visibility** is decided in one place, `UpdateOverlayVisibility()`: while driving, while being
   positioned, in standby if "Show in standby" is on, and briefly for a notice (`HudToast`).
 - **Saving:** `SaveActiveProfile()` copies the UI into the profile at once and writes the file 300 ms

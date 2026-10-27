@@ -104,8 +104,9 @@ There is no physical center on a mouse: if the wheel drifts off center, press **
   The three pedals sit side by side with their live force and key; click one to edit its force
   range, press and release times and axis inversion below a graph of one key press. Settings are
   saved per profile.
-- **HUD** — an overlay over the game: **Wheel** or **Bar**, size, opacity, numbers, fade when
-  straight, and position. It is click-through and never takes the focus.
+- **HUD** — an overlay over the game in four styles, with the pedals, a choice of wheel, a wheel
+  zoom, size, opacity, background, numbers, fade when straight, and position. It is click-through
+  and never takes the focus. See [The HUD](#the-hud).
 
 When adding or editing a vJoy binding, **Esc** cancels. **Backspace** clears an existing key
 without deleting its row; while adding, it exits without creating a binding. Switching profiles,
@@ -167,6 +168,38 @@ the pedals. Release and press the keys again afterward. Commands take priority o
 the page warns about conflicts. Multiple pedals can share a key and will respond together. A key
 also bound to a vJoy button operates both; choose separate keys if that is not intended. As with
 other global bindings, keys still reach the foreground application.
+
+---
+
+## The HUD
+
+The HUD shows the steering sent to the game and the pedals you use. Its settings are the same for
+every profile.
+
+| Style | What it shows |
+|---|---|
+| **Full** | Status and profile name, the wheel, the steering in percent and as a bar, and each pedal with its number |
+| **Classic** | The wheel, with clutch and brake bars on the left and throttle on the right, as in a car |
+| **Column** | A narrow vertical strip for a screen edge: the steering as a small bar, the pedals under it |
+| **Minimal** | Two thin lines: the steering on top; below it the brake grows left of center and the throttle right |
+
+- **Wheel** (Full and Classic) — **Classic** is a wood-rim wheel of an old sports car, with
+  polished slotted spokes and an amber inlay at twelve o'clock. **GT** is a modern race-car wheel:
+  round with a flat bottom, alcantara with a yellow center stripe, a carbon center with buttons,
+  and a display that shows the steering under shift lights that follow the throttle. While driving,
+  a thin cyan line runs around the wheel.
+- **Wheel zoom** (Full and Classic) — shows only the top 20% of the rim, enlarged into a wide strip.
+  Zoomed, the wheel turns at most 45° at full lock instead of 90°, so the top mark stays in view.
+- **Background** — the panel behind the HUD. At **0%** only the HUD itself remains; below 50%, text,
+  bars and the wheel get a dark outline so they still read over a bright sky or track. **Opacity**
+  dims the whole HUD, panel included.
+- **Pedals on HUD** — **Auto**, **Show** or **Hide** for each pedal. Auto, the default, shows a pedal
+  when the active profile has it enabled with a key; the line under each pedal says what Auto is
+  doing right now. The pedal colors are green for throttle, red for brake and blue for clutch.
+- **Show numbers** — the steering in percent and the force of each pedal.
+
+The pedals on the HUD move in standby too, so with **Show in standby** on you can hold the keys and
+check the HUD before driving; the game still gets 0% until you activate driving.
 
 ---
 

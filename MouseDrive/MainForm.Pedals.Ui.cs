@@ -180,6 +180,7 @@ public partial class MainForm
 		SaveActiveProfile();
 		RefreshHotkeyUi();
 		RefreshPedalUi();
+		RefreshHudElementHints();
 	}
 
 	private void RefreshPedalKey(bool capturing)
@@ -215,6 +216,7 @@ public partial class MainForm
 		SaveActiveProfile();
 		RefreshHotkeyUi();
 		RefreshPedalUi();
+		RefreshHudElementHints();
 	}
 
 	private void RefreshPedalUi()

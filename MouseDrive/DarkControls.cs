@@ -690,6 +690,12 @@ internal sealed class Segmented : PaintedControl
 		Invalidate();
 	}
 
+	protected override void OnEnabledChanged(EventArgs e)
+	{
+		Invalidate();
+		base.OnEnabledChanged(e);
+	}
+
 	private RectangleF Segment(int i)
 	{
 		float w = (float)(Width - 6 - (items.Length - 1) * 3) / (float)Math.Max(1, items.Length);
@@ -706,13 +712,13 @@ internal sealed class Segmented : PaintedControl
 			RectangleF r = Segment(i);
 			if (i == selected)
 			{
-				FillRounded(g, Theme.Blue, r, 3f);
+				FillRounded(g, Enabled ? Theme.Blue : Theme.Primary, r, 3f);
 			}
-			else if (i == hot)
+			else if (i == hot && Enabled)
 			{
 				FillRounded(g, Color.FromArgb(52, 52, 64), r, 3f);
 			}
-			Color tc = ((i == selected) ? Color.White : Theme.Muted);
+			Color tc = ((!Enabled) ? Theme.Faint : ((i == selected) ? Color.White : Theme.Muted));
 			TextRenderer.DrawText(g, items[i], Font, Rectangle.Round(r), tc, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
 		}
 		if (Focused && ShowFocusCues)
@@ -1622,9 +1628,7 @@ internal sealed class HudPreview : PaintedControl
 {
 	private HudState state;
 
-	private HudStyle style;
-
-	private bool numbers = true;
+	private HudLook look;
 
 	private int opacity = 90;
 
@@ -1641,10 +1645,9 @@ internal sealed class HudPreview : PaintedControl
 		AccessibleRole = AccessibleRole.Graphic;
 	}
 
-	public void Configure(HudStyle style, bool numbers, int opacity, int sizePercent)
+	public void Configure(HudLook look, int opacity, int sizePercent)
 	{
-		this.style = style;
-		this.numbers = numbers;
+		this.look = look;
 		this.opacity = opacity;
 		this.sizePercent = sizePercent;
 		Invalidate();
@@ -1704,9 +1707,10 @@ internal sealed class HudPreview : PaintedControl
 			}
 			g.ResetClip();
 		}
-		Size ls = HudRenderer.LogicalSize(style, numbers);
-		float baseWidth = ((style == HudStyle.Bar) ? 230f : 90f);
-		float w = Math.Min(Math.Min(baseWidth * (float)sizePercent / 100f, (float)(Height - 8) * (float)ls.Width / (float)ls.Height), Width - 16);
+		Size ls = HudRenderer.LogicalSize(look);
+		// The preview shows the HUD at a fixed share of its real size, so the Size slider still reads.
+		float baseScale = ((look.Style == HudStyle.Minimal) ? 0.9f : 0.45f);
+		float w = Math.Min(Math.Min((float)ls.Width * baseScale * (float)sizePercent / 100f, (float)(Height - 8) * (float)ls.Width / (float)ls.Height), Width - 16);
 		float s = w / (float)ls.Width;
 		int bw = Math.Max(1, (int)Math.Ceiling(w));
 		int bh = Math.Max(1, (int)Math.Ceiling((float)ls.Height * s));
@@ -1716,7 +1720,7 @@ internal sealed class HudPreview : PaintedControl
 			hg.SmoothingMode = SmoothingMode.AntiAlias;
 			hg.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
 			hg.ScaleTransform(s, s);
-			HudRenderer.Draw(hg, style, state, numbers);
+			HudRenderer.Draw(hg, look, state);
 		}
 		using ImageAttributes ia = new ImageAttributes();
 		ia.SetColorMatrix(new ColorMatrix

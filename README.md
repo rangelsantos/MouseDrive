@@ -21,7 +21,9 @@ games without mouse steering of their own.
   shifting, pit limiter, lights…
 - **Progressive pedals.** Throttle, brake and clutch from keys or mouse buttons, with initial
   and maximum force, press and release times, a graph of one key press and live pedal bars.
-- **On-screen HUD.** Wheel or bar, click-through, with size, opacity and position.
+- **On-screen HUD.** Four styles (Full, Classic, Column, Minimal) with pedal bars, a classic
+  wood-rim or modern GT wheel, a wheel zoom and a see-through background; click-through, with size,
+  opacity and position.
 - **Profiles per car or game**, with import and export.
 
 ## Quick start
