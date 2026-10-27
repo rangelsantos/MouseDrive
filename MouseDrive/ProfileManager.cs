@@ -96,6 +96,9 @@ public static class ProfileManager
 				{
 					return null;
 				}
+				p.Throttle.Upgrade();
+				p.Brake.Upgrade();
+				p.Clutch.Upgrade();
 				if (p.Buttons.Any((ButtonBinding b) => b == null || b.Button < 1 || b.Button > byte.MaxValue || b.Vk < 0 || b.Vk > byte.MaxValue))
 				{
 					return null;

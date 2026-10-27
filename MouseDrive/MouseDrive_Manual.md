@@ -101,8 +101,9 @@ There is no physical center on a mouse: if the wheel drifts off center, press **
   mouse button (right, middle, 4, 5) to a vJoy button and bind that button in the game, for
   shift up/down, pit limiter, lights… In key capture, **Esc** cancels and **Backspace** clears.
 - **Pedals** — configure progressive throttle, brake and clutch from keys or mouse buttons.
-  Each pedal has an initial force, maximum force, apply/release rates, axis inversion, a response
-  graph and a live meter. Settings are saved per profile.
+  The three pedals sit side by side with their live force and key; click one to edit its force
+  range, press and release times and axis inversion below a graph of one key press. Settings are
+  saved per profile.
 - **HUD** — an overlay over the game: **Wheel** or **Bar**, size, opacity, numbers, fade when
   straight, and position. It is click-through and never takes the focus.
 
@@ -121,9 +122,11 @@ The **⚙** menu has **Always on top**, **Close to tray**, **Compact window** an
 
 ## Progressive pedals
 
-On **Pedals**, choose **Throttle**, **Brake** or **Clutch**, turn on **Enable pedal**, click the key
-button and press a key or mouse button (right, middle, 4 or 5). Pedals start disabled and unassigned
-in new and older profiles. **Esc** cancels capture; **Backspace** or **Clear key** unassigns it.
+The top of **Pedals** shows **Clutch**, **Brake** and **Throttle** in a car's order, each with its
+live force, its key and, when it is below 100%, an amber line at its maximum force. Click a pedal
+(or use the arrow keys) to edit it below. Turn on **Enabled** in the editor's header, click the
+**Key** button and press a key or mouse button (right, middle, 4 or 5). Pedals start disabled and
+unassigned in new and older profiles. **Esc** cancels capture; **Backspace** or **×** unassigns it.
 
 | Pedal | vJoy axis on Device 1 |
 |---|---|
@@ -133,25 +136,31 @@ in new and older profiles. **Esc** cancels capture; **Backspace** or **Clear key
 
 Enable the axes you need in **Configure vJoy**, then restart MouseDrive. A warning on the pedal
 page identifies an axis that is unavailable. In the game, bind each pedal as a separate axis and
-turn off combined pedals if that option is present. **Invert pedal axis** reverses the output for
+turn off combined pedals if that option is present. **Invert axis** reverses the output for
 games that read the axis backwards.
 
-- **Initial force** is applied once when you press the key. Set it to **0%** for a smooth start
-  from zero, or raise it for an immediate small input.
-- **Maximum force** caps the pedal while you hold the key. Initial force cannot exceed it;
-  moving either limit past the other moves the other limit to match.
-- **Apply rate** adds percentage points of force per second while held.
-- **Release rate** removes percentage points per second after you let go, down to **0%**.
-  Initial force is not a floor while releasing.
+- **Force** has two handles. The left one is the **initial force**, applied once when you press
+  the key: **0%** for a smooth start from zero, higher for an immediate small input. The right one
+  is the **maximum force** the pedal reaches while you hold the key. The handles can meet but not
+  cross. With the slider focused, the arrow keys move the last handle used and **Space** switches
+  handles.
+- **Press time** is how long the pedal takes from the initial force to the maximum while held.
+- **Release time** is how long it takes from the maximum to **0%** after you let go. Initial
+  force is not a floor while releasing.
 
-For example, initial **10%**, maximum **80%** and apply rate **35%/s** take **2 seconds** to reach
-the maximum. A release rate of **200%/s** returns from 80% to zero in **0.4 seconds**. Repressing
-the key during release continues from the remaining force rather than dropping back to the initial
-value. Both rates use elapsed time, so the response does not depend on timer frequency.
+Both times go from 0.05 to 10 seconds, with finer steps at the short end. They are kept when you
+change the force range, so the pedal keeps its feel. For example, initial **10%**, maximum
+**80%** and press time **2.00 s** reach 80% two seconds after the key goes down; a release time
+of **0.40 s** returns to zero in 0.4 seconds. Letting go before the maximum releases at the same
+speed, so it takes proportionally less time. Repressing the key during release continues from the
+remaining force rather than dropping back to the initial value. Everything uses elapsed time, so
+the response does not depend on timer frequency. Profiles from earlier versions, which stored
+rates in percent per second, are converted to times when they load.
 
-The graph previews holding the key through full application and then releasing it. The meters
-show the current input; you can hold the assigned keys in **standby** to test the ramps while
-the game output stays at **0%**. Activate driving to send the pedal forces to vJoy.
+The graph shows one key press: the jump to the initial force, the climb to the maximum, the hold
+and the release, with each setting labeled where it acts. Hold the assigned key in **standby** to
+watch the pedal bars and the green dot on the graph follow the ramps while the game output stays
+at **0%**. Activate driving to send the pedal forces to vJoy.
 
 Entering or leaving driving, switching profiles, rebinding keys or changing pedal settings releases
 the pedals. Release and press the keys again afterward. Commands take priority over pedal keys;
@@ -168,7 +177,7 @@ profile button at the top to switch, and **⋯** to create, duplicate, rename, i
 delete. Profiles are JSON files in the `Profiles` folder next to `MouseDrive.exe`, so keep the
 app in a folder you can write to (not Program Files).
 
-Profiles with null binding entries, invalid key/button numbers or invalid pedal limits/rates are
+Profiles with null binding entries, invalid key/button numbers or invalid pedal limits/times are
 rejected during import.
 
 ---

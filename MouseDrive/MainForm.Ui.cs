@@ -361,9 +361,81 @@ public partial class MainForm
 	}
 
 	// One line: caption (with an optional hint), slider, value with unit. The row matches its parent's color.
-	private Slider AddSliderRow(TableLayoutPanel t, ref int row, string label, string hint, int min, int max, int val, string unit, bool autosave = true)
+	private Slider AddSliderRow(TableLayoutPanel t, ref int row, string label, string hint, int min, int max, int val, string unit, bool autosave = true, Func<int, string>? format = null)
 	{
-		TableLayoutPanel line = new TableLayoutPanel
+		Func<int, string> text = format ?? ((int v) => v + unit);
+		TableLayoutPanel line = SliderLine(t);
+		Caption caption = SliderCaption(t, label, hint);
+		Slider s = new Slider
+		{
+			Minimum = min,
+			Maximum = max,
+			Value = val,
+			DefaultValue = val,
+			BackColor = t.BackColor,
+			Anchor = (AnchorStyles.Left | AnchorStyles.Right),
+			Margin = new Padding(4, 0, 6, 0),
+			AccessibleName = label
+		};
+		Label value = SliderValue(text(val));
+		s.Tag = new SliderRow
+		{
+			Caption = caption,
+			Value = value,
+			Unit = unit
+		};
+		s.ValueChanged += (object? o, EventArgs e) =>
+		{
+			value.Text = text(s.Value);
+		};
+		if (autosave)
+		{
+			s.ValueChanged += (object? o, EventArgs e) =>
+			{
+				SaveActiveProfile();
+			};
+		}
+		toolTip.SetToolTip(s, "Double-click to reset to " + text(val));
+		line.Controls.Add(caption, 0, 0);
+		line.Controls.Add(s, 1, 0);
+		line.Controls.Add(value, 2, 0);
+		AddRow(t, ref row, line, SizeType.AutoSize, 0, fill: true, 4);
+		return s;
+	}
+
+	// The same row with a two-thumb slider; the value reads "low–high" plus the unit.
+	private RangeSlider AddRangeRow(TableLayoutPanel t, ref int row, string label, string hint, int min, int max, int low, int high, string unit)
+	{
+		TableLayoutPanel line = SliderLine(t);
+		Caption caption = SliderCaption(t, label, hint);
+		RangeSlider s = new RangeSlider
+		{
+			Minimum = min,
+			Maximum = max,
+			DefaultLow = low,
+			DefaultHigh = high,
+			BackColor = t.BackColor,
+			Anchor = (AnchorStyles.Left | AnchorStyles.Right),
+			Margin = new Padding(4, 0, 6, 0),
+			AccessibleName = label
+		};
+		s.SetRange(low, high);
+		Label value = SliderValue(low + "–" + high + unit);
+		s.ValueChanged += (object? o, EventArgs e) =>
+		{
+			value.Text = s.Low + "–" + s.High + unit;
+		};
+		toolTip.SetToolTip(s, "Double-click to reset to " + low + "–" + high + unit);
+		line.Controls.Add(caption, 0, 0);
+		line.Controls.Add(s, 1, 0);
+		line.Controls.Add(value, 2, 0);
+		AddRow(t, ref row, line, SizeType.AutoSize, 0, fill: true, 4);
+		return s;
+	}
+
+	private static TableLayoutPanel SliderLine(TableLayoutPanel t)
+	{
+		return new TableLayoutPanel
 		{
 			ColumnCount = 3,
 			AutoSize = true,
@@ -377,7 +449,11 @@ public partial class MainForm
 				new ColumnStyle(SizeType.Absolute, 58f)
 			}
 		};
-		Caption caption = new Caption
+	}
+
+	private static Caption SliderCaption(TableLayoutPanel t, string label, string hint)
+	{
+		return new Caption
 		{
 			Text = label,
 			Hint = hint,
@@ -385,20 +461,13 @@ public partial class MainForm
 			Dock = DockStyle.Fill,
 			Margin = Padding.Empty
 		};
-		Slider s = new Slider
+	}
+
+	private static Label SliderValue(string text)
+	{
+		return new Label
 		{
-			Minimum = min,
-			Maximum = max,
-			Value = val,
-			DefaultValue = val,
-			BackColor = t.BackColor,
-			Anchor = (AnchorStyles.Left | AnchorStyles.Right),
-			Margin = new Padding(4, 0, 6, 0),
-			AccessibleName = label
-		};
-		Label value = new Label
-		{
-			Text = val + unit,
+			Text = text,
 			AutoSize = false,
 			Size = new Size(58, 22),
 			TextAlign = ContentAlignment.MiddleRight,
@@ -408,29 +477,6 @@ public partial class MainForm
 			Anchor = AnchorStyles.Right,
 			Margin = Padding.Empty
 		};
-		s.Tag = new SliderRow
-		{
-			Caption = caption,
-			Value = value,
-			Unit = unit
-		};
-		s.ValueChanged += (object? o, EventArgs e) =>
-		{
-			value.Text = s.Value + unit;
-		};
-		if (autosave)
-		{
-			s.ValueChanged += (object? o, EventArgs e) =>
-			{
-				SaveActiveProfile();
-			};
-		}
-		toolTip.SetToolTip(s, "Double-click to reset to " + val + unit);
-		line.Controls.Add(caption, 0, 0);
-		line.Controls.Add(s, 1, 0);
-		line.Controls.Add(value, 2, 0);
-		AddRow(t, ref row, line, SizeType.AutoSize, 0, fill: true, 4);
-		return s;
 	}
 
 	private Button Styled(string text, Color back)
@@ -1548,7 +1594,7 @@ public partial class MainForm
 		captureVersion++;
 		if (pedalKey != null)
 		{
-			pedalKey.Text = Profile.KeyName(PedalConfig(selectedPedal).Vk);
+			RefreshPedalKey(capturing: false);
 		}
 		capturingRow = null;
 		capture = null;

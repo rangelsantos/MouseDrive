@@ -20,7 +20,7 @@ games without mouse steering of their own.
 - **Extra buttons.** Map keys or mouse buttons (right, middle, 4, 5) to vJoy buttons for
   shifting, pit limiter, lights…
 - **Progressive pedals.** Throttle, brake and clutch from keys or mouse buttons, with initial
-  and maximum force, adjustable apply/release rates, a response graph and live meters.
+  and maximum force, press and release times, a graph of one key press and live pedal bars.
 - **On-screen HUD.** Wheel or bar, click-through, with size, opacity and position.
 - **Profiles per car or game**, with import and export.
 

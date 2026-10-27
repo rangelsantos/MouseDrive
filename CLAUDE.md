@@ -56,7 +56,7 @@ Run binding/profile regression checks with `dotnet run --project MouseDrive.Test
 They use the real forms with substitutes for vJoy, cursor hiding and global hooks; test data stays
 in the test build output. To check UI changes, copy the build output to a scratch folder, launch it, open a
 tab by invoking its button through UI Automation (`InvokePattern` on "Drive", "Steering", "Pedals", "Keys", "HUD";
-the Keys sub-tabs "Commands" and "vJoy buttons · n" are `TabButton`s too; "Settings" opens the ⚙
+the Keys sub-tabs "Commands" and "vJoy buttons · n" are `TabButton`s too; on Pedals, click a pedal in "Pedal selector" (columns: clutch, brake, throttle); "Settings" opens the ⚙
 menu), screenshot the window with `Graphics.CopyFromScreen`, then `CloseMainWindow()`. Owner-drawn
 controls (`Segmented`, `SteeringMonitor`...) are found by their `Text`; click a segment with
 `PostMessage(WM_LBUTTONDOWN/UP)` on its handle so the real mouse doesn't move. Running the app
@@ -69,9 +69,9 @@ installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Neve
 |---|---|
 | `MainForm.cs` | Logic: steering loop, Raw Input, vJoy setup and checks, key handling, profile actions, HUD visibility |
 | `MainForm.Ui.cs` | The screens, built in code (no designer): header, tabs Drive/Steering/Pedals/Keys/HUD, status bar, compact window, tray, hotkey and button lists, ⚙ menu and About |
-| `DarkControls.cs` | Owner-drawn controls: `Slider`, `ToggleSwitch`, `Segmented`, `TabButton`, `ActivateButton`, `SteeringMonitor`, `TravelRuler`, `LampStrip`, `KeyLegend`, `Stepper`, `HudPreview`, dark menus |
+| `DarkControls.cs` | Owner-drawn controls: `Slider`, `RangeSlider`, `ToggleSwitch`, `Segmented`, `TabButton`, `ActivateButton`, `SteeringMonitor`, `TravelRuler`, `LampStrip`, `KeyLegend`, `Stepper`, `HudPreview`, dark menus |
 | `MainForm.Pedals.cs` / `MainForm.Pedals.Ui.cs` | Pedal input/output and the dedicated Pedals tab |
-| `PedalSettings.cs` / `PedalState.cs` / `PedalControls.cs` | Per-profile pedal settings, elapsed-time ramps, live meters and response graph |
+| `PedalSettings.cs` / `PedalState.cs` / `PedalControls.cs` | Per-profile pedal settings, elapsed-time ramps, the pedal selector (`PedalPicker`, live bars) and the force-over-time graph |
 | `HudRenderer.cs` | Draws the HUD styles (`HudStyle`: Wheel, Bar) and the Drive monitor from a `HudState` |
 | `OverlayForm.cs` | Click-through HUD: per-pixel-alpha layered window (`UpdateLayeredWindow`), never activates; position mode with Done; notices |
 | `Theme.cs` | Palette and fonts |
@@ -114,7 +114,7 @@ installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Neve
 ## Pedals
 
 - Throttle, brake and clutch use fixed vJoy Y/Z/Rz axes. New/older profiles default to disabled and unassigned.
-- Initial force applies on key-down; apply/release rates are percentage points per second. Release reaches zero.
+- Initial force applies on key-down. The profile stores times (`PressMs` initial→max, `ReleaseMs` max→zero), not rates, so a new force range keeps the feel; rates are derived. Older profiles with `ApplyRate`/`ReleaseRate` are converted on load (`PedalSettings.Upgrade()`) and not written again. Release reaches zero.
 - Standby runs the visual input preview but writes released axes. Commands win over pedal keys; shared pedal/button keys operate both.
 - Reset pedal force and held state on driving transitions, profile switches, rebinds and pedal setting changes. Never send a missing axis.
 

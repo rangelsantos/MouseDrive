@@ -246,6 +246,248 @@ internal sealed class Slider : PaintedControl
 	}
 }
 
+// A slider with two thumbs for a range (a pedal's initial and maximum force). The thumbs can meet but not
+// cross. The keys move the active thumb, the last one dragged; Space switches to the other.
+internal sealed class RangeSlider : PaintedControl
+{
+	private const int Pad = 8;
+
+	private int minimum;
+
+	private int maximum = 100;
+
+	private int low;
+
+	private int high = 100;
+
+	private bool activeHigh = true;
+
+	private bool dragging;
+
+	public int DefaultLow { get; set; }
+
+	public int DefaultHigh { get; set; } = 100;
+
+	public int Minimum
+	{
+		get
+		{
+			return minimum;
+		}
+		set
+		{
+			minimum = value;
+			SetRange(low, high);
+		}
+	}
+
+	public int Maximum
+	{
+		get
+		{
+			return maximum;
+		}
+		set
+		{
+			maximum = value;
+			SetRange(low, high);
+		}
+	}
+
+	public int Low
+	{
+		get
+		{
+			return low;
+		}
+		set
+		{
+			SetRange(Math.Min(value, high), high);
+		}
+	}
+
+	public int High
+	{
+		get
+		{
+			return high;
+		}
+		set
+		{
+			SetRange(low, Math.Max(value, low));
+		}
+	}
+
+	public event EventHandler ValueChanged;
+
+	public RangeSlider()
+	{
+		SetStyle(ControlStyles.Selectable, value: true);
+		TabStop = true;
+		Height = 22;
+		Cursor = Cursors.Hand;
+		AccessibleRole = AccessibleRole.Slider;
+	}
+
+	public void SetRange(int lowValue, int highValue)
+	{
+		int l = Math.Min(Math.Max(lowValue, minimum), maximum);
+		int h = Math.Min(Math.Max(highValue, l), maximum);
+		if (l != low || h != high)
+		{
+			low = l;
+			high = h;
+			AccessibleDescription = low + " to " + high;
+			Invalidate();
+			this.ValueChanged?.Invoke(this, EventArgs.Empty);
+		}
+	}
+
+	private float XOf(int v)
+	{
+		return (float)Pad + (float)(v - minimum) / (float)Math.Max(1, maximum - minimum) * (float)(Width - Pad * 2);
+	}
+
+	private int ValueAt(int x)
+	{
+		double t = (double)(x - Pad) / (double)Math.Max(1, Width - Pad * 2);
+		return minimum + (int)Math.Round(Math.Min(Math.Max(t, 0.0), 1.0) * (double)(maximum - minimum));
+	}
+
+	private void MoveActive(int v)
+	{
+		if (activeHigh)
+		{
+			High = v;
+		}
+		else
+		{
+			Low = v;
+		}
+	}
+
+	protected override void OnPaint(PaintEventArgs e)
+	{
+		Graphics g = Smooth(e);
+		g.Clear(BackColor);
+		float cy = (float)Height / 2f;
+		float lx = XOf(low);
+		float hx = XOf(high);
+		FillRounded(g, Theme.Track, new RectangleF(Pad, cy - 2f, Width - Pad * 2, 4f), 2f);
+		using (SolidBrush fill = new SolidBrush(Enabled ? Theme.Accent : Theme.Faint))
+		{
+			g.FillRectangle(fill, lx, cy - 2f, Math.Max(1f, hx - lx), 4f);
+		}
+		if (Enabled && (Focused || hover || dragging))
+		{
+			float ax = (activeHigh ? hx : lx);
+			using SolidBrush halo = new SolidBrush(Color.FromArgb(90, Theme.Accent));
+			g.FillEllipse(halo, ax - 10f, cy - 10f, 20f, 20f);
+		}
+		using SolidBrush thumb = new SolidBrush(Enabled ? Color.White : Theme.Muted);
+		g.FillEllipse(thumb, lx - 7f, cy - 7f, 14f, 14f);
+		g.FillEllipse(thumb, hx - 7f, cy - 7f, 14f, 14f);
+	}
+
+	protected override void OnMouseDown(MouseEventArgs e)
+	{
+		if (e.Button == MouseButtons.Left)
+		{
+			Focus();
+			dragging = true;
+			float lx = XOf(low);
+			float hx = XOf(high);
+			// When the thumbs meet, the side clicked says which one to pull.
+			activeHigh = ((Math.Abs(hx - lx) < 1f) ? ((float)e.X >= hx) : (Math.Abs(e.X - hx) <= Math.Abs(e.X - lx)));
+			if (low == high && high == maximum)
+			{
+				activeHigh = false;
+			}
+			if (low == high && low == minimum)
+			{
+				activeHigh = true;
+			}
+			MoveActive(ValueAt(e.X));
+		}
+		base.OnMouseDown(e);
+	}
+
+	protected override void OnMouseMove(MouseEventArgs e)
+	{
+		if (dragging)
+		{
+			MoveActive(ValueAt(e.X));
+		}
+		base.OnMouseMove(e);
+	}
+
+	protected override void OnMouseUp(MouseEventArgs e)
+	{
+		dragging = false;
+		Invalidate();
+		base.OnMouseUp(e);
+	}
+
+	protected override void OnMouseDoubleClick(MouseEventArgs e)
+	{
+		SetRange(DefaultLow, DefaultHigh);
+		base.OnMouseDoubleClick(e);
+	}
+
+	protected override void OnGotFocus(EventArgs e)
+	{
+		Invalidate();
+		base.OnGotFocus(e);
+	}
+
+	protected override void OnLostFocus(EventArgs e)
+	{
+		Invalidate();
+		base.OnLostFocus(e);
+	}
+
+	protected override bool IsInputKey(Keys keyData)
+	{
+		Keys k = keyData & Keys.KeyCode;
+		if (k == Keys.Left || k == Keys.Right || k == Keys.Up || k == Keys.Down)
+		{
+			return true;
+		}
+		return base.IsInputKey(keyData);
+	}
+
+	protected override void OnKeyDown(KeyEventArgs e)
+	{
+		int page = Math.Max(1, (maximum - minimum) / 10);
+		int current = (activeHigh ? high : low);
+		switch (e.KeyCode)
+		{
+		case Keys.Left:
+		case Keys.Down:
+			MoveActive(current - 1);
+			break;
+		case Keys.Right:
+		case Keys.Up:
+			MoveActive(current + 1);
+			break;
+		case Keys.PageDown:
+			MoveActive(current - page);
+			break;
+		case Keys.PageUp:
+			MoveActive(current + page);
+			break;
+		case Keys.Space:
+			activeHigh = !activeHigh;
+			Invalidate();
+			break;
+		default:
+			base.OnKeyDown(e);
+			return;
+		}
+		e.Handled = true;
+	}
+}
+
 // The label column of a slider row: a title and an optional smaller hint under it.
 internal sealed class Caption : PaintedControl
 {

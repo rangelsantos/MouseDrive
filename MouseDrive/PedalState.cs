@@ -30,8 +30,8 @@ internal sealed class PedalState
 		}
 		dt = Math.Max(0, dt);
 		Value = Held
-			? Math.Min(settings.Maximum / 100.0, Value + settings.ApplyRate / 100.0 * dt)
-			: Math.Max(0, Value - settings.ReleaseRate / 100.0 * dt);
+			? Math.Min(settings.Maximum / 100.0, Value + settings.ApplyPerSecond * dt)
+			: Math.Max(0, Value - settings.ReleasePerSecond * dt);
 	}
 
 	public void Reset()

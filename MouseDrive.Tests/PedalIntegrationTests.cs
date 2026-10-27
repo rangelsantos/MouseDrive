@@ -81,14 +81,32 @@ internal static class PedalIntegrationTests
 			Application.DoEvents();
 			Require(Field<Profile>(form, "profile").Throttle.Vk == (int)Keys.W);
 		});
-		check("Pedal sliders keep the initial force below the maximum", () =>
+		check("Force range never lets the initial force pass the maximum", () =>
 		{
 			Use(form);
-			Field<Slider>(form, "pedalMinimum").Value = 95;
-			Require(Field<Profile>(form, "profile").Throttle.Maximum == 95);
-			Field<Slider>(form, "pedalMaximum").Value = 15;
-			Require(Field<Profile>(form, "profile").Throttle.Minimum == 15);
+			RangeSlider force = Field<RangeSlider>(form, "pedalForce");
+			force.Low = 95;
+			Require(Field<Profile>(form, "profile").Throttle.Minimum == 80 && Field<Profile>(form, "profile").Throttle.Maximum == 80);
+			force.High = 15;
+			Require(Field<Profile>(form, "profile").Throttle.Maximum == 80);
+			force.SetRange(10, 90);
+			Require(Field<Profile>(form, "profile").Throttle.Minimum == 10 && Field<Profile>(form, "profile").Throttle.Maximum == 90);
 			Require(Field<Profile>(form, "profile").Brake.Minimum == 0);
+		});
+		check("Picking a pedal loads its settings and time sliders write the selected pedal", () =>
+		{
+			Use(form);
+			Field<PedalPicker>(form, "pedalPicker").Selected = 1;
+			Require(Field<int>(form, "selectedPedal") == 1);
+			Require(Field<Label>(form, "pedalTitle").Text == "BRAKE · VJOY Z");
+			Slider press = Field<Slider>(form, "pedalPress");
+			press.Value = 0;
+			Require(Field<Profile>(form, "profile").Brake.PressMs == PedalSettings.MinTimeMs);
+			Require(Field<Profile>(form, "profile").Throttle.PressMs == 1500);
+			press.Value = press.Maximum;
+			Require(Field<Profile>(form, "profile").Brake.PressMs == PedalSettings.MaxTimeMs);
+			Field<PedalPicker>(form, "pedalPicker").Selected = 0;
+			Require(Field<Label>(form, "pedalTitle").Text == "THROTTLE · VJOY Y");
 		});
 		check("Unavailable pedal axes are skipped with a setup warning", () =>
 		{
@@ -111,10 +129,11 @@ internal static class PedalIntegrationTests
 			string path = Path.Combine(AppContext.BaseDirectory, "pedals.json");
 			try
 			{
-				Profile p = new Profile { Throttle = new PedalSettings { Enabled = true, Vk = (int)Keys.W, Minimum = 15, Maximum = 85, ApplyRate = 75, ReleaseRate = 250, Inverted = true } };
+				Profile p = new Profile { Throttle = new PedalSettings { Enabled = true, Vk = (int)Keys.W, Minimum = 15, Maximum = 85, PressMs = 750, ReleaseMs = 250, Inverted = true } };
 				Require(ProfileManager.Export(p, path));
 				PedalSettings result = ProfileManager.Import(path).Throttle;
-				Require(result.Enabled && result.Vk == (int)Keys.W && result.Minimum == 15 && result.Maximum == 85 && result.ApplyRate == 75 && result.ReleaseRate == 250 && result.Inverted);
+				Require(result.Enabled && result.Vk == (int)Keys.W && result.Minimum == 15 && result.Maximum == 85 && result.PressMs == 750 && result.ReleaseMs == 250 && result.Inverted);
+					Require(!File.ReadAllText(path).Contains("Rate"));
 				Require(ProfileManager.Clone(p, "Copy").Throttle.Minimum == 15);
 			}
 			finally { File.Delete(path); }
@@ -133,12 +152,24 @@ internal static class PedalIntegrationTests
 			}
 			finally { File.Delete(path); }
 		});
-		check("Invalid pedal bounds and zero rates reject the profile", () =>
+		check("Profiles with older rates load as times and save without the rates", () =>
 		{
 			string path = Path.Combine(AppContext.BaseDirectory, "pedals.json");
 			try
 			{
-				foreach (string json in new[] { "{\"Throttle\":{\"Minimum\":101}}", "{\"Brake\":{\"Minimum\":90,\"Maximum\":10}}", "{\"Clutch\":{\"ApplyRate\":0}}", "{\"Throttle\":{\"ReleaseRate\":1001}}" })
+				File.WriteAllText(path, "{\"Throttle\":{\"Enabled\":true,\"Minimum\":20,\"Maximum\":80,\"ApplyRate\":40,\"ReleaseRate\":200}}");
+				Profile result = ProfileManager.Import(path);
+				Require(result.Throttle.PressMs == 1500 && result.Throttle.ReleaseMs == 400 && result.Brake.PressMs == 1000);
+				Require(ProfileManager.Export(result, path) && !File.ReadAllText(path).Contains("Rate"));
+			}
+			finally { File.Delete(path); }
+		});
+		check("Invalid pedal bounds, rates and times reject the profile", () =>
+		{
+			string path = Path.Combine(AppContext.BaseDirectory, "pedals.json");
+			try
+			{
+				foreach (string json in new[] { "{\"Throttle\":{\"Minimum\":101}}", "{\"Brake\":{\"Minimum\":90,\"Maximum\":10}}", "{\"Clutch\":{\"ApplyRate\":0}}", "{\"Throttle\":{\"ReleaseRate\":1001}}", "{\"Brake\":{\"PressMs\":10}}", "{\"Clutch\":{\"ReleaseMs\":10001}}" })
 				{
 					File.WriteAllText(path, json);
 					Require(ProfileManager.Import(path) == null);
@@ -153,7 +184,7 @@ internal static class PedalIntegrationTests
 		Call(form, "UseProfile", new Profile
 		{
 			Name = "Pedal regression",
-			Throttle = new PedalSettings { Enabled = true, Vk = (int)Keys.W, Minimum = 20, Maximum = 80, ApplyRate = 40 },
+			Throttle = new PedalSettings { Enabled = true, Vk = (int)Keys.W, Minimum = 20, Maximum = 80, PressMs = 1500 },
 			Brake = new PedalSettings { Enabled = true, Vk = (int)Keys.S },
 			Clutch = new PedalSettings { Enabled = true, Vk = (int)Keys.C }
 		});
