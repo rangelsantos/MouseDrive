@@ -1123,7 +1123,44 @@ internal sealed class StatusChip : PaintedControl
 	}
 }
 
-// The live wheel on the Drive tab (and in the compact window).
+// The live wheel and pedals on the Drive tab.
+internal sealed class DriveMonitor : PaintedControl
+{
+	private DriveView view;
+
+	public DriveView View
+	{
+		get
+		{
+			return view;
+		}
+		set
+		{
+			if (value != view)
+			{
+				view = value;
+				Invalidate();
+			}
+		}
+	}
+
+	public DriveMonitor()
+	{
+		AccessibleName = "Steering and pedals";
+		Text = "Steering and pedals";
+		AccessibleRole = AccessibleRole.Graphic;
+		Height = HudRenderer.DriveHeight;
+	}
+
+	protected override void OnPaint(PaintEventArgs e)
+	{
+		Graphics g = Smooth(e);
+		g.Clear(BackColor);
+		HudRenderer.DrawDrive(g, view, Width);
+	}
+}
+
+// The live wheel in the compact window.
 internal sealed class SteeringMonitor : PaintedControl
 {
 	private HudState state;
@@ -1337,16 +1374,28 @@ internal sealed class TravelRuler : PaintedControl
 	}
 }
 
-// One lamp per vJoy button (up to 32): brighter when a key is mapped to it, green while pressed.
+// One lamp per vJoy button (up to 32): brighter when a key is mapped to it, green while pressed, with the key
+// under it.
 internal sealed class LampStrip : PaintedControl
 {
 	public const int MaxShown = 32;
+
+	private const float KeyRow = 12f;
+
+	private const float Gap = 3f;
 
 	private bool[] bound = new bool[0];
 
 	private bool[] on = new bool[0];
 
+	private string[] keys = new string[0];
+
+	// The row of key names under the lamps takes room only when some button has a key.
+	private bool labeled;
+
 	private static readonly Font Num = new Font("Segoe UI", 6.5f, FontStyle.Bold);
+
+	private static readonly Font KeyFont = new Font("Segoe UI", 6.5f);
 
 	public int Count => bound.Length;
 
@@ -1360,28 +1409,28 @@ internal sealed class LampStrip : PaintedControl
 
 	private float Cell => ((float)Width - 45f) / 16f;
 
-	public int HeightFor(int count)
+	private float Pitch => Cell + (labeled ? KeyRow : 0f) + Gap;
+
+	private int WantedHeight()
 	{
-		int rows = Math.Max(1, (Math.Min(count, MaxShown) + 15) / 16);
-		return (int)Math.Ceiling((float)rows * (Cell + 3f));
+		int rows = Math.Max(1, (Math.Min(bound.Length, MaxShown) + 15) / 16);
+		return (int)Math.Ceiling((float)rows * Pitch - Gap);
 	}
 
-	public void SetLamps(bool[] bound, bool[] on)
+	public void SetLamps(bool[] bound, bool[] on, string[] keys)
 	{
 		bool changed = bound.Length != this.bound.Length;
 		for (int i = 0; !changed && i < bound.Length; i++)
 		{
-			changed = bound[i] != this.bound[i] || on[i] != this.on[i];
+			changed = bound[i] != this.bound[i] || on[i] != this.on[i] || keys[i] != this.keys[i];
 		}
 		if (changed)
 		{
-			bool resize = bound.Length != this.bound.Length;
 			this.bound = bound;
 			this.on = on;
-			if (resize)
-			{
-				Height = HeightFor(bound.Length);
-			}
+			this.keys = keys;
+			labeled = Array.Exists(keys, (string k) => !string.IsNullOrEmpty(k));
+			Height = WantedHeight();
 			Invalidate();
 		}
 	}
@@ -1389,7 +1438,7 @@ internal sealed class LampStrip : PaintedControl
 	protected override void OnResize(EventArgs e)
 	{
 		base.OnResize(e);
-		int h = HeightFor(bound.Length);
+		int h = WantedHeight();
 		if (Height != h)
 		{
 			Height = h;
@@ -1404,11 +1453,17 @@ internal sealed class LampStrip : PaintedControl
 		int n = Math.Min(bound.Length, MaxShown);
 		for (int i = 0; i < n; i++)
 		{
-			RectangleF r = new RectangleF((float)(i % 16) * (c + 3f), (float)(i / 16) * (c + 3f), c, c);
+			RectangleF r = new RectangleF((float)(i % 16) * (c + 3f), (float)(i / 16) * Pitch, c, c);
 			Color back = (on[i] ? Theme.Green : (bound[i] ? Color.FromArgb(52, 52, 66) : Color.FromArgb(42, 42, 52)));
 			Color fore = (on[i] ? Color.FromArgb(16, 48, 26) : (bound[i] ? Color.FromArgb(169, 169, 182) : Color.FromArgb(106, 106, 118)));
 			FillRounded(g, back, r, 2f);
 			TextRenderer.DrawText(g, (i + 1).ToString(), Num, Rectangle.Round(r), fore, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+			if (!string.IsNullOrEmpty(keys[i]))
+			{
+				// A key name wider than the lamp spills into the gap on both sides before it is cut.
+				Rectangle kr = Rectangle.Round(new RectangleF(r.X - 1.5f, r.Bottom + 1f, c + 3f, KeyRow));
+				TextRenderer.DrawText(g, keys[i], KeyFont, kr, Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
+			}
 		}
 	}
 }

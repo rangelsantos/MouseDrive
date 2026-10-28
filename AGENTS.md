@@ -58,7 +58,7 @@ in the test build output. To check UI changes, copy the build output to a scratc
 tab by invoking its button through UI Automation (`InvokePattern` on "Drive", "Steering", "Pedals", "Keys", "HUD";
 the Keys sub-tabs "Commands" and "vJoy buttons · n" are `TabButton`s too; on Pedals, click a pedal in "Pedal selector" (columns: clutch, brake, throttle); "Settings" opens the ⚙
 menu), screenshot the window with `Graphics.CopyFromScreen`, then `CloseMainWindow()`. Owner-drawn
-controls (`Segmented`, `SteeringMonitor`...) are found by their `Text`; click a segment with
+controls (`Segmented`, `DriveMonitor`...) are found by their `Text`; click a segment with
 `PostMessage(WM_LBUTTONDOWN/UP)` on its handle so the real mouse doesn't move. Running the app
 installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Never activate driving
 (F9) in an automated run**: it hides the system cursor and locks it to the middle of the screen.
@@ -69,10 +69,10 @@ installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Neve
 |---|---|
 | `MainForm.cs` | Logic: steering loop, Raw Input, vJoy setup and checks, key handling, profile actions, HUD visibility |
 | `MainForm.Ui.cs` | The screens, built in code (no designer): header, tabs Drive/Steering/Pedals/Keys/HUD, status bar, compact window, tray, hotkey and button lists, ⚙ menu and About |
-| `DarkControls.cs` | Owner-drawn controls: `Slider`, `RangeSlider`, `ToggleSwitch`, `Segmented`, `TabButton`, `ActivateButton`, `SteeringMonitor`, `TravelRuler`, `LampStrip`, `KeyLegend`, `Stepper`, `HudPreview`, dark menus |
+| `DarkControls.cs` | Owner-drawn controls: `Slider`, `RangeSlider`, `ToggleSwitch`, `Segmented`, `TabButton`, `ActivateButton`, `DriveMonitor`, `SteeringMonitor` (compact window), `TravelRuler`, `LampStrip`, `KeyLegend`, `Stepper`, `HudPreview`, dark menus |
 | `MainForm.Pedals.cs` / `MainForm.Pedals.Ui.cs` | Pedal input/output and the dedicated Pedals tab |
 | `PedalSettings.cs` / `PedalState.cs` / `PedalControls.cs` | Per-profile pedal settings, elapsed-time ramps, the pedal selector (`PedalPicker`, live bars) and the force-over-time graph |
-| `HudRenderer.cs` | Draws the HUD styles (`HudStyle`: Full, Classic, Column, Minimal) from a `HudLook` (app-wide options) and a `HudState` (live values), and the Drive monitor |
+| `HudRenderer.cs` | Draws the HUD styles (`HudStyle`: Full, Classic, Column, Minimal) from a `HudLook` (app-wide options) and a `HudState` (live values); the Drive monitor (`DrawDrive` from a `DriveView`: wheel, lock scale, pedals) and the compact one |
 | `HudWheels.cs` | The HUD's textured wheels (`HudWheel`: Classic wood rim, GT race car), drawn from procedural textures and cached in layers per pixel size |
 | `OverlayForm.cs` | Click-through HUD: per-pixel-alpha layered window (`UpdateLayeredWindow`), never activates; position mode with Done; notices |
 | `Theme.cs` | Palette and fonts |
@@ -129,7 +129,7 @@ installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Neve
   property initializers, and `Hotkey.DefaultVk` reads them from a fresh `Profile`.
 - **To add a command:** add an `int` property with a default to `Profile`, an entry to `Hotkey.All`,
   handle it in `MainForm.OnKeyDown`/`OnKeyUp`, and list it in `RefreshHotkeyUi()` if it belongs in
-  "Keys in use".
+  "Commands" on the Drive tab (pedal keys show under the pedals there, button keys under the lamps).
 - In key capture, Esc cancels and Backspace clears, so neither can be bound.
 - Mouse buttons (right, middle, X1, X2 as VK 2/4/5/6) come from Raw Input and go through the same
   `OnKeyDown`/`OnKeyUp`. The primary button is left out. Raw Input can't swallow the click.

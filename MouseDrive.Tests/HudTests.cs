@@ -55,6 +55,28 @@ internal static class HudTests
 							}
 			Require(HudRenderer.LogicalSize(new HudLook(HudStyle.Column, HudWheel.Classic, true, true, 100)) == HudRenderer.LogicalSize(new HudLook(HudStyle.Column, HudWheel.Classic, false, true, 100)));
 		});
+		check("The Drive monitor draws with every wheel, with pedals on, off and without a key", () =>
+		{
+			DrivePedal on = new DrivePedal("Throttle", "Y", 0.6, true, 0.4, 0.8, "W", false);
+			DrivePedal noKey = new DrivePedal("Brake", "Z", 0, true, 0, 1, "", true);
+			DrivePedal off = new DrivePedal("Clutch", "Rz", 0, false, 0, 1, "Mouse 4", false);
+			foreach (HudWheel wheel in Enum.GetValues<HudWheel>())
+				foreach (int width in new[] { 200, 420 })
+				{
+					using Bitmap bmp = new Bitmap(width, HudRenderer.DriveHeight, PixelFormat.Format32bppArgb);
+					using (Graphics g = Graphics.FromImage(bmp))
+					{
+						g.Clear(Theme.Row);
+						g.SmoothingMode = SmoothingMode.AntiAlias;
+						HudRenderer.DrawDrive(g, new DriveView(-0.4, 0.5, true, wheel, on, noKey, off), width);
+					}
+					int changed = 0;
+					for (int y = 0; y < bmp.Height; y += 4)
+						for (int x = 0; x < bmp.Width; x += 4)
+							if (bmp.GetPixel(x, y).ToArgb() != Theme.Row.ToArgb()) changed++;
+					Require(changed > 0);
+				}
+		});
 		check("A realistic wheel frame draws fast enough for the HUD loop", () =>
 		{
 			HudLook look = new HudLook(HudStyle.Full, HudWheel.Gt, false, true, 100);

@@ -226,7 +226,7 @@ public partial class MainForm
 		for (int i = 0; i < pedals.Length; i++)
 		{
 			PedalSettings each = PedalConfig(i);
-			pedalPicker.SetPedal(i, (each.Vk != 0) ? Profile.KeyName(each.Vk) : "", pedals[i].Value, each.Maximum, each.Enabled, pedals[i].Held);
+			pedalPicker.SetPedal(i, (each.Vk != 0) ? Profile.KeyName(each.Vk) : "", pedals[i].Value, each.Minimum, each.Maximum, each.Enabled, pedals[i].Held);
 		}
 		PedalSettings config = PedalConfig(selectedPedal);
 		pedalCurve.SetSettings(config);

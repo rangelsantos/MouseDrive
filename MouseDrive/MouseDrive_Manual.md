@@ -82,8 +82,13 @@ There is no physical center on a mouse: if the wheel drifts off center, press **
 
 ## The tabs
 
-- **Drive** — what the game is receiving: the wheel, the steering in percent, the mouse input
-  before expo and deadzone, and a lamp per vJoy button.
+- **Drive** — what the game is receiving. The wheel (the one chosen on the HUD tab) turns over a
+  scale from full left to full right, with the steering in percent under it; the white triangle
+  is the mouse before deadzone, expo and smoothing. Clutch and brake stand on the left and the
+  throttle on the right, each with its force, its vJoy axis and its key; on a bar, the white tick is
+  the initial force (shown above 0%) and the amber line the maximum force (shown below 100%), and a pedal that is off shows as a dashed
+  outline. Under that, a lamp per vJoy
+  button with its key, and the **Commands** keys.
 - **Steering** — the feel, saved per profile. On top, **Mouse to wheel** shows two rulers: mouse
   travel from center in millimeters (on a 1600 DPI mouse) above, wheel lock below. The lines join
   them at every 10% of lock, so you can see how far the mouse goes for each step: with Expo they
@@ -124,7 +129,8 @@ The **⚙** menu has **Always on top**, **Close to tray**, **Compact window** an
 ## Progressive pedals
 
 The top of **Pedals** shows **Clutch**, **Brake** and **Throttle** in a car's order, each with its
-live force, its key and, when it is below 100%, an amber line at its maximum force. Click a pedal
+live force, its key, a white tick at its initial force (when above 0%) and an amber line at its
+maximum force (when below 100%). Click a pedal
 (or use the arrow keys) to edit it below. Turn on **Enabled** in the editor's header, click the
 **Key** button and press a key or mouse button (right, middle, 4 or 5). Pedals start disabled and
 unassigned in new and older profiles. **Esc** cancels capture; **Backspace** or **×** unassigns it.

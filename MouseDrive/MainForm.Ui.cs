@@ -94,11 +94,7 @@ public partial class MainForm
 
 	private Label lblSaved;
 
-	private SteeringMonitor monitor;
-
-	private Label lblSteering;
-
-	private Label lblInput;
+	private DriveMonitor monitor;
 
 	private LampStrip lamps;
 
@@ -1126,44 +1122,13 @@ public partial class MainForm
 		int row = 0;
 		TableLayoutPanel card = Card();
 		int cr = 0;
-		AddRow(card, ref cr, Header("Steering output"), SizeType.AutoSize, 0, fill: false, 6);
-		TableLayoutPanel mon = new TableLayoutPanel
+		AddRow(card, ref cr, Header("Live output"), SizeType.AutoSize, 0, fill: false, 6);
+		monitor = new DriveMonitor
 		{
-			ColumnCount = 2,
-			AutoSize = true,
-			AutoSizeMode = AutoSizeMode.GrowAndShrink,
-			BackColor = Theme.Row,
-			ColumnStyles =
-			{
-				new ColumnStyle(SizeType.Absolute, 252f),
-				new ColumnStyle(SizeType.Percent, 100f)
-			}
+			BackColor = Theme.Row
 		};
-		monitor = new SteeringMonitor
-		{
-			Size = new Size(240, 200),
-			Margin = new Padding(0, 0, 12, 0)
-		};
-		mon.Controls.Add(monitor, 0, 0);
-		TableLayoutPanel read = new TableLayoutPanel
-		{
-			ColumnCount = 2,
-			AutoSize = true,
-			AutoSizeMode = AutoSizeMode.GrowAndShrink,
-			Anchor = (AnchorStyles.Left | AnchorStyles.Right),
-			Margin = Padding.Empty,
-			ColumnStyles =
-			{
-				new ColumnStyle(SizeType.Percent, 100f),
-				new ColumnStyle(SizeType.AutoSize)
-			}
-		};
-		int rr = 0;
-		lblSteering = AddReadout(read, ref rr, "Steering", Color.White);
-		lblInput = AddReadout(read, ref rr, "Mouse", Theme.Muted);
-		toolTip.SetToolTip(lblInput, "The wheel from the mouse, before deadzone, expo and smoothing");
-		mon.Controls.Add(read, 1, 0);
-		AddRow(card, ref cr, mon, SizeType.AutoSize, 0, fill: true, 8);
+		toolTip.SetToolTip(monitor, "What the game gets. The triangle is the mouse, before deadzone, expo and smoothing; on a pedal, the white tick is its initial force and the amber line its maximum");
+		AddRow(card, ref cr, monitor, SizeType.AutoSize, 0, fill: true, 8);
 		AddRow(card, ref cr, Header("vJoy buttons"), SizeType.AutoSize, 0, fill: false, 6);
 		lamps = new LampStrip
 		{
@@ -1207,7 +1172,7 @@ public partial class MainForm
 		{
 			SelectTab(3);
 		};
-		AddRow(keys, ref kr, Header("Keys in use", change), SizeType.AutoSize, 0, fill: true, 6);
+		AddRow(keys, ref kr, Header("Commands", change), SizeType.AutoSize, 0, fill: true, 6);
 		legend = new KeyLegend
 		{
 			BackColor = Theme.Row
@@ -1215,31 +1180,6 @@ public partial class MainForm
 		AddRow(keys, ref kr, legend, SizeType.AutoSize, 0, fill: true, 0);
 		AddRow(t, ref row, keys, SizeType.AutoSize, 0);
 		return Scroller(t);
-	}
-
-	private static Label AddReadout(TableLayoutPanel t, ref int row, string name, Color valueColor)
-	{
-		t.Controls.Add(new Label
-		{
-			Text = name,
-			AutoSize = true,
-			ForeColor = Theme.Muted,
-			Anchor = AnchorStyles.Left,
-			Margin = new Padding(0, 3, 0, 3)
-		}, 0, row);
-		Label v = new Label
-		{
-			Text = "0%",
-			AutoSize = false,
-			Size = new Size(56, 20),
-			TextAlign = ContentAlignment.MiddleRight,
-			ForeColor = valueColor,
-			Anchor = AnchorStyles.Right,
-			Margin = Padding.Empty
-		};
-		t.Controls.Add(v, 1, row);
-		row++;
-		return v;
 	}
 
 	// ---------- Steering ----------
@@ -1769,10 +1709,6 @@ public partial class MainForm
 		List<(string, bool)> line = new List<(string, bool)>();
 		AddLegendItems(line, "Drive / standby", profile.ToggleVk);
 		AddLegendItems(line, "Center steering", profile.CenterVk);
-		for (int i = 0; i < pedals.Length; i++)
-		{
-			if (PedalConfig(i).Enabled) AddLegendItems(line, PedalNames[i], PedalConfig(i).Vk);
-		}
 		if (line.Count > 0)
 		{
 			lines.Add(line);
@@ -2439,12 +2375,11 @@ public partial class MainForm
 		{
 		case 0:
 		{
-			monitor.State = st;
-			SetText(lblSteering, HudRenderer.Percent(st.Steering));
-			SetText(lblInput, HudRenderer.Percent(wheel));
+			monitor.View = new DriveView(st.Steering, wheel, st.Active, settings.HudWheel, DrivePedalView(0), DrivePedalView(1), DrivePedalView(2));
 			int n = Math.Min(vjoyButtonCount, LampStrip.MaxShown);
 			bool[] bound = new bool[n];
 			bool[] on = new bool[n];
+			string[] names = new string[n];
 			foreach (ButtonBinding b in profile.Buttons)
 			{
 				int i = b.Button - 1;
@@ -2452,9 +2387,13 @@ public partial class MainForm
 				{
 					bound[i] = true;
 					on[i] |= b.Pressed;
+					if (names[i] == null && b.Vk != 0)
+					{
+						names[i] = Profile.KeyName(b.Vk);
+					}
 				}
 			}
-			lamps.SetLamps(bound, on);
+			lamps.SetLamps(bound, on, names);
 			break;
 		}
 		case 1:

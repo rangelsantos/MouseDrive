@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Linq;
+using System.Windows.Forms;
 
 namespace MouseDrive;
 
@@ -57,6 +58,12 @@ public struct HudState
 
 	public bool ShowClutch;
 }
+
+// One pedal on the Drive monitor: its force, and how the profile sets it up. Initial is the force on key-down, 0..1.
+public readonly record struct DrivePedal(string Name, string Axis, double Force, bool Enabled, double Initial, double Maximum, string Key, bool AxisMissing);
+
+// What the Drive monitor shows: the vJoy output, the wheel from the mouse before shaping, and the three pedals.
+public readonly record struct DriveView(double Steering, double Mouse, bool Active, HudWheel Wheel, DrivePedal Throttle, DrivePedal Brake, DrivePedal Clutch);
 
 // Draws every HUD style in its own logical units; callers scale the Graphics to the size they want.
 internal static class HudRenderer
@@ -125,11 +132,184 @@ internal static class HudRenderer
 		}
 	}
 
-	// The Drive tab monitor, 240 x 200: a big wheel and the axis bar under it, without panel or text.
+	// The compact window's monitor, 240 x 200: a big wheel and the axis bar under it, without panel or text.
 	public static void DrawMonitor(Graphics g, HudState s)
 	{
 		DrawFlatWheel(g, 120f, 86f, 74f, s.Steering, s.Active);
 		DrawTrack(g, 30f, 180f, 180f, 8f, s.Steering, s.Active, outlined: false);
+	}
+
+	// ---------- Drive tab: the HUD wheel on a lock scale, clutch and brake on the left, throttle on the right ----------
+
+	public const int DriveHeight = 224;
+
+	private const float DriveColumn = 50f;
+
+	private const float DriveColumnGap = 4f;
+
+	private const float DriveBarWidth = 16f;
+
+	private const float DriveBarTop = 22f;
+
+	// Under each bar: the pedal's name, its axis and its key.
+	private const float DriveBarFoot = 58f;
+
+	private const float DriveMaxScale = 100f;
+
+	private static readonly Font ChipFont = new Font("Segoe UI Semibold", 8f);
+
+	// Drawn in pixels, not scaled: the labels use the UI font, which TextRenderer draws untransformed.
+	public static void DrawDrive(Graphics g, DriveView v, int width)
+	{
+		DrivePedalColumn(g, v.Clutch, ClutchColor, 0f);
+		DrivePedalColumn(g, v.Brake, BrakeColor, DriveColumn + DriveColumnGap);
+		DrivePedalColumn(g, v.Throttle, ThrottleColor, (float)width - DriveColumn);
+		float left = DriveColumn * 2f + DriveColumnGap + 8f;
+		float right = (float)width - DriveColumn - 8f;
+		float cx = (left + right) / 2f;
+		// The scale's ticks and the mouse marker sit up to 18 px outside it.
+		float scale = Math.Clamp((right - left) / 2f - 18f, 40f, DriveMaxScale);
+		float cy = scale + 20f;
+		Color live = (v.Active ? Theme.Cyan : Color.FromArgb(160, 168, 178));
+		DriveScale(g, v, cx, cy, scale, live);
+		HudState s = new HudState
+		{
+			Steering = v.Steering,
+			Active = v.Active,
+			Throttle = (v.Throttle.Enabled ? v.Throttle.Force : 0.0)
+		};
+		float r = scale * 0.78f;
+		float degrees = Turn(s, WheelTurnDegrees);
+		if (v.Wheel == HudWheel.Gt)
+		{
+			HudWheels.RaceCar(g, s, outlined: false, cx, cy, r, degrees);
+		}
+		else
+		{
+			HudWheels.Vintage(g, s, outlined: false, cx, cy, r, degrees);
+		}
+		int captionY = DriveHeight - 17;
+		TextRenderer.DrawText(g, "Steering · X " + Percent(v.Steering), Theme.Small, new Rectangle((int)cx - 160, captionY, 152, 15), Theme.Muted, TextFormatFlags.Right | TextFormatFlags.NoPadding);
+		float mx = cx + 8f;
+		using (SolidBrush b = new SolidBrush(Theme.Text))
+		{
+			g.FillPolygon(b, new PointF[3]
+			{
+				new PointF(mx, captionY + 4),
+				new PointF(mx + 8f, captionY + 4),
+				new PointF(mx + 4f, captionY + 11)
+			});
+		}
+		TextRenderer.DrawText(g, "Mouse " + Percent(v.Mouse), Theme.Small, new Rectangle((int)mx + 11, captionY, 150, 15), Theme.Muted, TextFormatFlags.NoPadding);
+	}
+
+	// The wheel's top mark travels this arc: full left at nine o'clock, full right at three. Ticks every 10%,
+	// the live output fills from the top, and a triangle shows the mouse before deadzone, expo and smoothing.
+	private static void DriveScale(Graphics g, DriveView v, float cx, float cy, float scale, Color live)
+	{
+		RectangleF arc = new RectangleF(cx - scale, cy - scale, scale * 2f, scale * 2f);
+		using (Pen track = new Pen(Theme.Track, 3f))
+		{
+			g.DrawArc(track, arc, 180f, 180f);
+		}
+		using (Pen tick = new Pen(Theme.Faint, 1.2f))
+		{
+			for (int i = 0; i <= 20; i++)
+			{
+				double a = (double)(-90 + 9 * i) * Math.PI / 180.0;
+				float outer = scale + ((i % 5 == 0) ? 13f : 8f);
+				float sn = (float)Math.Sin(a);
+				float cs = (float)Math.Cos(a);
+				g.DrawLine(tick, cx + sn * (scale + 3f), cy - cs * (scale + 3f), cx + sn * outer, cy - cs * outer);
+			}
+		}
+		float sweep = (float)Math.Clamp(v.Steering, -1.0, 1.0) * 90f;
+		if (Math.Abs(sweep) > 0.3f)
+		{
+			using Pen fill = new Pen(live, 3f)
+			{
+				StartCap = LineCap.Round,
+				EndCap = LineCap.Round
+			};
+			g.DrawArc(fill, arc, 270f, sweep);
+		}
+		double m = Math.Clamp(v.Mouse, -1.0, 1.0) * Math.PI / 2.0;
+		float ms = (float)Math.Sin(m);
+		float mc = (float)Math.Cos(m);
+		PointF At(float radius, float side)
+		{
+			return new PointF(cx + ms * radius + mc * side, cy - mc * radius + ms * side);
+		}
+		using (SolidBrush marker = new SolidBrush(Theme.Text))
+		{
+			g.FillPolygon(marker, new PointF[3]
+			{
+				At(scale + 5f, 0f),
+				At(scale + 15f, -4.5f),
+				At(scale + 15f, 4.5f)
+			});
+		}
+		int letterY = (int)cy + 4;
+		TextRenderer.DrawText(g, "L", Theme.Small, new Rectangle((int)(cx - scale) - 12, letterY, 24, 15), Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPadding);
+		TextRenderer.DrawText(g, "R", Theme.Small, new Rectangle((int)(cx + scale) - 12, letterY, 24, 15), Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPadding);
+	}
+
+	// Force on top, the bar with a tick at the initial force and an amber line at the maximum (each only when it
+	// narrows the full 0-100% range), then name, axis and key. A disabled pedal keeps its
+	// place as a dashed outline, so the wheel doesn't move when a pedal is turned on.
+	private static void DrivePedalColumn(Graphics g, DrivePedal p, Color color, float x)
+	{
+		float mid = x + DriveColumn / 2f;
+		float bx = mid - DriveBarWidth / 2f;
+		float h = (float)DriveHeight - DriveBarTop - DriveBarFoot;
+		Text(g, p.Enabled ? Force(p.Force) : "off", 13f, p.Enabled ? color : Theme.Faint, mid, 14f, StringAlignment.Center, outlined: false);
+		if (p.Enabled)
+		{
+			FillRounded(g, Theme.Input, bx, DriveBarTop, DriveBarWidth, h, 4f);
+			float fh = h * (float)Math.Clamp(p.Force, 0.0, 1.0);
+			if (fh > 0.5f)
+			{
+				FillRounded(g, color, bx, DriveBarTop + h - fh, DriveBarWidth, fh, 4f);
+			}
+			if (p.Initial > 0.0)
+			{
+				float ty = DriveBarTop + h * (1f - (float)Math.Clamp(p.Initial, 0.0, 1.0));
+				using Pen tick = new Pen(Color.FromArgb(110, 255, 255, 255), 1f);
+				g.DrawLine(tick, bx - 3f, ty, bx + DriveBarWidth + 3f, ty);
+			}
+			if (p.Maximum < 1.0)
+			{
+				float my = DriveBarTop + h * (1f - (float)Math.Clamp(p.Maximum, 0.0, 1.0));
+				using Pen limit = new Pen(Theme.Amber, 1.5f);
+				g.DrawLine(limit, bx - 3f, my, bx + DriveBarWidth + 3f, my);
+			}
+		}
+		else
+		{
+			using GraphicsPath outline = Rounded(new RectangleF(bx, DriveBarTop, DriveBarWidth, h), 4f);
+			using Pen dash = new Pen(Theme.Track, 1f)
+			{
+				DashPattern = new float[2] { 3f, 3f }
+			};
+			g.DrawPath(dash, outline);
+		}
+		int col = (int)x;
+		int w = (int)DriveColumn;
+		int y = (int)(DriveBarTop + h);
+		TextRenderer.DrawText(g, p.Name, Theme.Small, new Rectangle(col - 6, y + 4, w + 12, 14), Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPadding);
+		string axis = (p.AxisMissing ? ("no " + p.Axis) : (p.Axis + " axis"));
+		TextRenderer.DrawText(g, axis, Theme.Small, new Rectangle(col - 6, y + 18, w + 12, 14), p.AxisMissing ? Theme.Warn : Theme.Faint, TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPadding);
+		string key = (p.Enabled && !string.IsNullOrEmpty(p.Key)) ? p.Key : "—";
+		int kw = Math.Min(w, TextRenderer.MeasureText(key, ChipFont, Size.Empty, TextFormatFlags.NoPadding).Width + 12);
+		Rectangle chip = new Rectangle(col + (w - kw) / 2, DriveHeight - 22, kw, 20);
+		using (GraphicsPath cp = Rounded(chip, 4f))
+		{
+			using SolidBrush b = new SolidBrush(Theme.Input);
+			using Pen pen = new Pen(Color.FromArgb(40, 255, 255, 255), 1f);
+			g.FillPath(b, cp);
+			g.DrawPath(pen, cp);
+		}
+		TextRenderer.DrawText(g, key, ChipFont, chip, p.Enabled ? Color.White : Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
 	}
 
 	// A short notice in the middle of the HUD ("DRIVING", "CENTER"), drawn over everything else.

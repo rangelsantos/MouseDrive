@@ -6,7 +6,7 @@ using System.Windows.Forms;
 namespace MouseDrive;
 
 // The three pedals side by side in a car's order (clutch, brake, throttle), each with its live force, its
-// maximum force and its key. Clicking one, or the arrow keys, picks the pedal the editor below shows.
+// force range and its key. Clicking one, or the arrow keys, picks the pedal the editor below shows.
 internal sealed class PedalPicker : PaintedControl
 {
 	// Pedal indexes (0 throttle, 1 brake, 2 clutch) from left to right.
@@ -24,6 +24,7 @@ internal sealed class PedalPicker : PaintedControl
 	private readonly string[] names;
 	private readonly string[] keys = { "", "", "" };
 	private readonly double[] values = new double[3];
+	private readonly int[] minimums = new int[3];
 	private readonly int[] maximums = { 100, 100, 100 };
 	private readonly bool[] enabled = new bool[3];
 	private readonly bool[] held = new bool[3];
@@ -56,11 +57,12 @@ internal sealed class PedalPicker : PaintedControl
 		}
 	}
 
-	public void SetPedal(int index, string key, double value, int maximum, bool on, bool pressed)
+	public void SetPedal(int index, string key, double value, int minimum, int maximum, bool on, bool pressed)
 	{
-		if (keys[index] == key && Math.Abs(values[index] - value) < 0.001 && maximums[index] == maximum && enabled[index] == on && held[index] == pressed) return;
+		if (keys[index] == key && Math.Abs(values[index] - value) < 0.001 && minimums[index] == minimum && maximums[index] == maximum && enabled[index] == on && held[index] == pressed) return;
 		keys[index] = key;
 		values[index] = value;
+		minimums[index] = minimum;
 		maximums[index] = maximum;
 		enabled[index] = on;
 		held[index] = pressed;
@@ -164,12 +166,19 @@ internal sealed class PedalPicker : PaintedControl
 			{
 				float fill = (float)(BarHeight * Math.Clamp(values[i], 0, 1));
 				if (fill > 0.5f) FillRounded(g, held[i] ? Theme.Cyan : Theme.Accent, new RectangleF(bar.X, bar.Bottom - fill, bar.Width, fill), 3);
-				// The highest force this pedal can reach, when the maximum isn't the full pedal.
+				// The force range, when it is narrower than the full pedal: a white tick where a press starts, an
+				// amber line at the highest force it reaches.
+				if (minimums[i] > 0)
+				{
+					float y = bar.Bottom - BarHeight * minimums[i] / 100f;
+					using Pen tick = new Pen(Color.FromArgb(110, 255, 255, 255), 1f);
+					g.DrawLine(tick, bar.X - 4, y, bar.Right + 4, y);
+				}
 				if (maximums[i] < 100)
 				{
-					float y = bar.Bottom - BarHeight * maximums[i] / 100f;
+					float top = bar.Bottom - BarHeight * maximums[i] / 100f;
 					using Pen limit = new Pen(Theme.Amber, 1.5f);
-					g.DrawLine(limit, bar.X - 4, y, bar.Right + 4, y);
+					g.DrawLine(limit, bar.X - 4, top, bar.Right + 4, top);
 				}
 			}
 			else

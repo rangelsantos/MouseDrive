@@ -18,6 +18,13 @@ public partial class MainForm
 	// The HUD follows the pedal as it moves, standby included, like the preview on the Pedals tab.
 	private double PedalForce(int index) => PedalConfig(index).Enabled ? pedals[index].Value : 0;
 
+	private DrivePedal DrivePedalView(int index)
+	{
+		PedalSettings config = PedalConfig(index);
+		string key = (config.Vk != 0) ? Profile.KeyName(config.Vk) : "";
+		return new DrivePedal(PedalNames[index], PedalAxisNames[index], PedalForce(index), config.Enabled, config.Minimum / 100.0, config.Maximum / 100.0, key, acquired && !pedalAxisAvailable[index]);
+	}
+
 	internal static bool PedalOnHud(HudElementMode mode, PedalSettings config) =>
 		mode == HudElementMode.Show || (mode == HudElementMode.Auto && config.Enabled && config.Vk != 0);
 
