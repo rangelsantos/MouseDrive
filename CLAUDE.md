@@ -19,7 +19,7 @@ The user writes in Portuguese (pt-BR). The app UI and the manual are in English;
   profiles, tray, compact window, progressive throttle/brake/clutch on Y/Z/Rz with a Pedals tab.
 - **Next (MVP):** steer from `WM_INPUT` directly (lower latency than the ~64 Hz timer), sensitivity in
   real units (cm or degrees, with the mouse DPI), an axis sweep to help binding in games, testing in
-  real games and a setup section per game in the manual, screenshots for the README.
+  real games and a setup section per game in the manual.
 - **Phase 2 remaining:** gear shifts on the mouse wheel.
 - **Phase 3, on demand:** XInput output (ViGEm) for games that only accept an Xbox pad; speed-sensitive
   steering from game telemetry.
@@ -29,6 +29,13 @@ The user writes in Portuguese (pt-BR). The app UI and the manual are in English;
 - `MouseDrive/` — the project (`MouseDrive.csproj`, sources directly in it, namespace `MouseDrive`).
 - `MouseDrive/MouseDrive_Manual.md` — the user manual, copied next to the exe. When a feature changes,
   update it, and the README if it mentions it. Both UTF-8.
+- `README.md` — the GitHub presentation page (badges, screenshots, highlights, a tour of the tabs, quick
+  start), not the manual. `docs/images/` holds its pictures: the tabs and the compact window are
+  screenshots of the real window (a scratch copy with a demo profile "GT3" at 900° with pedals and named
+  buttons, `HudInStandby` on, the HUD parked away from the window, cropped to `DWMWA_EXTENDED_FRAME_BOUNDS`);
+  the `hud-*.png` styles are drawn with `HudRenderer.Draw` over the HUD tab's road scene in a scratch
+  console that compiles `HudRenderer.cs`, `HudWheels.cs` and `Theme.cs`, since the live window can't show
+  steering without driving. Retake them after a visible UI change.
 - `MouseDrive/Assets/Brand/` — `make-icon.ps1` draws the icon from vectors and writes
   `MouseDrive.ico` (exe icon and embedded resource) and `mousedrive-icon-512.png` (README). It is a
   placeholder; rerun the script after changing the drawing.
@@ -36,7 +43,7 @@ The user writes in Portuguese (pt-BR). The app UI and the manual are in English;
 - `.github/workflows/release.yml` — on every push to `main`, publishes a release `v<MAJOR>.<n>` (MAJOR
   is 0 for now) with `MouseDrive-v<MAJOR>.<n>.zip`, whose folder is always `MouseDrive\`. It stamps the
   version into `AssemblyInfo.cs` in CI only (git keeps `0.0.0`, shown as "Development build").
-  **There is no remote yet**: the repo is local only until the user creates one.
+  The remote is github.com/rangelsantos/MouseDrive; About links to it and to its releases (`RepoUrl`).
 
 ## Build
 
@@ -112,6 +119,9 @@ installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Neve
   and every readout and scale stay in percent of the axis. `CurrentLook()` adds it and the position bar
   (`HudBarOn()`: Auto above 360°, Full and Classic only) to `settings.Look`; `RefreshLook()` redraws on a
   profile switch or a new rotation without saving the settings. The HUD shows no degrees.
+- **HUD status:** `HudLook.Status` ("Show status", `AppSettings.HudStatus`) hides the driving/standby line and
+  the profile name together. `HudRenderer.Draw()` draws the panel and then lifts the content by
+  `StatusLift()`, which `LogicalSize()` also takes off the height, so the styles keep their own coordinates.
 - **HUD visibility** is decided in one place, `UpdateOverlayVisibility()`: while driving, while being
   positioned, in standby if "Show in standby" is on, and briefly for a notice (`HudToast`).
 - **Saving:** `SaveActiveProfile()` copies the UI into the profile at once and writes the file 300 ms
@@ -171,5 +181,6 @@ installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Neve
 
 ## Git
 
-- Local repo only, branch `main`, no remote yet. Commit or push only when the user asks.
+- Branch `main`, remote `origin` at github.com/rangelsantos/MouseDrive. Commit or push only when the user
+  asks; a push to `main` publishes a release.
 - `vJoyInterface.dll` is redistributed from the vJoy SDK; confirm its license before publishing.

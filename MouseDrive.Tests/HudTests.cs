@@ -57,6 +57,23 @@ internal static class HudTests
 								}
 			Require(HudRenderer.LogicalSize(new HudLook(HudStyle.Column, HudWheel.Classic, true, true, 100)) == HudRenderer.LogicalSize(new HudLook(HudStyle.Column, HudWheel.Classic, false, true, 100)));
 		});
+		check("Hiding the status makes every style but Minimal shorter, and it still draws", () =>
+		{
+			Require(AppSettings.Parse("{}").HudStatus && new AppSettings().Look.Status);
+			Require(!AppSettings.Parse("{\"HudStatus\":false}").Look.Status);
+			HudState state = new HudState { Steering = 0.5, Active = true, Throttle = 0.4, ShowThrottle = true, ShowBrake = true, Profile = "GT3", ToggleKey = "F9" };
+			foreach (HudStyle style in Enum.GetValues<HudStyle>())
+				foreach (bool zoom in new[] { false, true })
+					foreach (bool bar in new[] { false, true })
+					{
+						HudLook shown = new HudLook(style, HudWheel.Gt, zoom, true, 0, 900, bar);
+						HudLook hidden = shown with { Status = false };
+						Size full = HudRenderer.LogicalSize(shown);
+						Size less = HudRenderer.LogicalSize(hidden);
+						Require(less.Width == full.Width && (style == HudStyle.Minimal ? less.Height == full.Height : less.Height < full.Height));
+						Require(Painted(hidden, state) > 0);
+					}
+		});
 		check("Older profiles turn the wheel 360°, and a rotation out of range is clamped", () =>
 		{
 			Require(new Profile().WheelRotation == 360);

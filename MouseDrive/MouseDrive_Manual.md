@@ -114,8 +114,8 @@ There is no physical center on a mouse: if the wheel drifts off center, press **
   range, press and release times and axis inversion below a graph of one key press. Settings are
   saved per profile.
 - **HUD** — an overlay over the game in four styles, with the pedals, a choice of wheel, the wheel
-  rotation, a position bar, a wheel zoom, size, opacity, background, numbers, fade when straight, and position. It is click-through
-  and never takes the focus. See [The HUD](#the-hud).
+  rotation, a position bar, a wheel zoom, size, opacity, background, numbers, status, fade when
+  straight, and position. It is click-through and never takes the focus. See [The HUD](#the-hud).
 
 When adding or editing a vJoy binding, **Esc** cancels. **Backspace** clears an existing key
 without deleting its row; while adding, it exits without creating a binding. Switching profiles,
@@ -188,7 +188,7 @@ every profile, except **Wheel rotation**, which is saved with the profile.
 
 | Style | What it shows |
 |---|---|
-| **Full** | Status and profile name, the wheel, the position bar, and each pedal with its number |
+| **Full** | Status and profile name (optional), the wheel, the position bar, and each pedal with its number |
 | **Classic** | The wheel and the position bar, with clutch and brake bars on the left and throttle on the right, as in a car |
 | **Column** | A narrow vertical strip for a screen edge: the steering as a small bar, the pedals under it |
 | **Minimal** | Two thin lines: the steering on top; below it the brake grows left of center and the throttle right |
@@ -217,6 +217,9 @@ every profile, except **Wheel rotation**, which is saved with the profile.
   when the active profile has it enabled with a key; the line under each pedal says what Auto is
   doing right now. The pedal colors are green for throttle, red for brake and blue for clutch.
 - **Show numbers** — the steering in percent and the force of each pedal.
+- **Show status** — the driving or standby indicator (with the drive key in standby) and, on Full,
+  the active profile's name. Off hides both; Full, Classic and Column get shorter and the rest moves
+  up into their place. Minimal never shows them.
 
 The pedals on the HUD move in standby too, so with **Show in standby** on you can hold the keys and
 check the HUD before driving; the game still gets 0% until you activate driving.

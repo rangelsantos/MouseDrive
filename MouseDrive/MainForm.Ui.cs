@@ -183,6 +183,8 @@ public partial class MainForm
 
 	private ToggleSwitch swHudNumbers;
 
+	private ToggleSwitch swHudStatus;
+
 	private ToggleSwitch swHudFade;
 
 	private ToggleSwitch swHudStandby;
@@ -962,6 +964,8 @@ public partial class MainForm
 
 	// ---------- About ----------
 
+	private const string RepoUrl = "https://github.com/rangelsantos/MouseDrive";
+
 	private const string CoffeeUrl = "https://ko-fi.com/rangelsantosss";
 
 	private static string ManualPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MouseDrive_Manual.md");
@@ -1011,7 +1015,7 @@ public partial class MainForm
 		dlg.StartPosition = FormStartPosition.CenterParent;
 		dlg.TopMost = true;
 		dlg.ShowInTaskbar = false;
-		dlg.ClientSize = new Size(360, 260);
+		dlg.ClientSize = new Size(360, 300);
 		dlg.MaximizeBox = false;
 		dlg.MinimizeBox = false;
 		dlg.BackColor = Theme.Bar;
@@ -1076,6 +1080,18 @@ public partial class MainForm
 			AutoSize = true,
 			Margin = Padding.Empty
 		};
+		(string, string)[] targets = new (string, string)[2]
+		{
+			("GitHub repository", RepoUrl),
+			("Releases", RepoUrl + "/releases")
+		};
+		foreach ((string text, string url) in targets)
+		{
+			LinkLabel l = Link(text, Theme.Strong);
+			l.Links[0].LinkData = url;
+			links.Controls.Add(l);
+		}
+		toolTip.SetToolTip(links.Controls[1], "Download the latest version");
 		LinkLabel manual = Link("User manual", Theme.Strong);
 		manual.Links[0].LinkData = ManualPath;
 		toolTip.SetToolTip(manual, "Opens MouseDrive_Manual.md from the app folder");
@@ -2162,7 +2178,7 @@ public partial class MainForm
 			Value = new Profile().WheelRotation,
 			Height = 30
 		};
-		toolTip.SetToolTip(numRotation, "The game's steering rotation, lock to lock. Click a side, use the arrow keys or the mouse wheel: " + RotationStep + "° a step");
+		toolTip.SetToolTip(numRotation, "The game's steering rotation, lock to lock. Click a side, or click it and use the arrow keys or the mouse wheel: " + RotationStep + "° a step");
 		AddCaptionRow(rotationCard, ref gr, new Caption
 		{
 			Text = "Rotation",
@@ -2237,6 +2253,11 @@ public partial class MainForm
 			settings.HudNumbers = swHudNumbers.Checked;
 			ApplyLook();
 		});
+		swHudStatus = Switch("Show status", "driving state and profile", (object? s, EventArgs e) =>
+		{
+			settings.HudStatus = swHudStatus.Checked;
+			ApplyLook();
+		});
 		swHudFade = Switch("Fade when straight", "dims at center", (object? s, EventArgs e) =>
 		{
 			settings.HudFade = swHudFade.Checked;
@@ -2249,8 +2270,9 @@ public partial class MainForm
 			UpdateOverlayVisibility();
 			SaveSettingsSoon();
 		});
-		AddRow(display, ref dr, SwitchPair(swShowHud, swHudNumbers), SizeType.AutoSize, 0, fill: true, 4);
-		AddRow(display, ref dr, SwitchPair(swHudFade, swHudStandby), SizeType.AutoSize, 0, fill: true, 0);
+		AddRow(display, ref dr, SwitchPair(swShowHud, swHudStandby), SizeType.AutoSize, 0, fill: true, 4);
+		AddRow(display, ref dr, SwitchPair(swHudNumbers, swHudStatus), SizeType.AutoSize, 0, fill: true, 4);
+		AddRow(display, ref dr, swHudFade, SizeType.AutoSize, 0, fill: true, 0);
 		AddRow(t, ref row, display, SizeType.AutoSize, 0);
 		TableLayoutPanel position = Card();
 		int pr = 0;
@@ -2445,6 +2467,7 @@ public partial class MainForm
 		swShowHud.Checked = settings.ShowHud;
 		swShowHudDrive.Checked = settings.ShowHud;
 		swHudNumbers.Checked = settings.HudNumbers;
+		swHudStatus.Checked = settings.HudStatus;
 		swHudFade.Checked = settings.HudFade;
 		swHudStandby.Checked = settings.HudInStandby;
 		TopMost = settings.TopMost;

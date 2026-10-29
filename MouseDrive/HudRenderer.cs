@@ -24,7 +24,8 @@ public enum HudWheel
 
 // How the HUD looks: the options that change the drawing but not the live values. Rotation is the active
 // profile's wheel rotation and Bar whether Full and Classic draw the axis bar; the rest is app-wide.
-public readonly record struct HudLook(HudStyle Style, HudWheel Wheel, bool Zoom, bool Numbers, int Background, int Rotation = 360, bool Bar = false)
+// Status draws the driving/standby line and the profile name.
+public readonly record struct HudLook(HudStyle Style, HudWheel Wheel, bool Zoom, bool Numbers, int Background, int Rotation = 360, bool Bar = false, bool Status = true)
 {
 	public bool HasWheel => Style == HudStyle.Full || Style == HudStyle.Classic;
 
@@ -105,19 +106,46 @@ internal static class HudRenderer
 
 	private const float ZoomChord = 1.6f;
 
+	// The band of the status line (with the profile name on Full) that a hidden status gives back.
+	private const int StatusBand = 24;
+
+	private const int ZoomStatusBand = 18;
+
+	private const int ColumnStatusBand = 34;
+
 	public static Size LogicalSize(HudLook look)
 	{
-		return look.Style switch
+		Size size = look.Style switch
 		{
 			HudStyle.Full => look.Zoomed ? new Size(360, 132) : new Size(320, 232),
 			HudStyle.Column => new Size(72, 272),
 			HudStyle.Minimal => new Size(260, 44),
 			_ => look.Zoomed ? new Size(320, 112 + (look.Bar ? ClassicZoomBarHeight : 0)) : new Size(240, 236 + (look.Bar ? ClassicBarHeight : 0)),
 		};
+		return new Size(size.Width, size.Height - StatusLift(look));
+	}
+
+	// Without the status line the rest moves up into its band, and the HUD is that much shorter.
+	private static int StatusLift(HudLook look)
+	{
+		if (look.Status)
+		{
+			return 0;
+		}
+		return look.Style switch
+		{
+			HudStyle.Full or HudStyle.Classic => look.Zoomed ? ZoomStatusBand : StatusBand,
+			HudStyle.Column => ColumnStatusBand,
+			_ => 0,
+		};
 	}
 
 	public static void Draw(Graphics g, HudLook look, HudState s)
 	{
+		bool narrow = look.Style == HudStyle.Column || look.Style == HudStyle.Minimal;
+		Panel(g, look, LogicalSize(look), narrow ? 10f : 14f);
+		GraphicsState saved = g.Save();
+		g.TranslateTransform(0f, -StatusLift(look));
 		switch (look.Style)
 		{
 		case HudStyle.Full:
@@ -133,6 +161,7 @@ internal static class HudRenderer
 			DrawClassic(g, look, s);
 			break;
 		}
+		g.Restore(saved);
 	}
 
 	// The compact window's monitor, 240 x 200: a big wheel and the axis bar under it, without panel or text.
@@ -580,17 +609,19 @@ internal static class HudRenderer
 		g.Restore(saved);
 	}
 
-	// ---------- Full: status and profile, wheel, steering, a track and every pedal with its number ----------
+	// ---------- Full: status and profile (optional), wheel, steering, a track and every pedal with its number ----------
 
 	private static void DrawFull(Graphics g, HudLook look, HudState s)
 	{
 		Size size = LogicalSize(look);
 		bool o = look.Outlined;
-		Panel(g, look, size, 14f);
-		StatusLine(g, look, s, 22f, 27f, 12f);
-		if (!string.IsNullOrEmpty(s.Profile))
+		if (look.Status)
 		{
-			Text(g, s.Profile, 11f, LabelColor, size.Width - 18, 27f, StringAlignment.Far, o);
+			StatusLine(g, look, s, 22f, 27f, 12f);
+			if (!string.IsNullOrEmpty(s.Profile))
+			{
+				Text(g, s.Profile, 11f, LabelColor, size.Width - 18, 27f, StringAlignment.Far, o);
+			}
 		}
 		List<(string Letter, double Value, Color Color)> list = Pedals(s);
 		const float BarWidth = 22f;
@@ -643,11 +674,13 @@ internal static class HudRenderer
 	{
 		Size size = LogicalSize(look);
 		bool o = look.Outlined;
-		Panel(g, look, size, 14f);
 		float top = (look.Zoomed ? 34f : 56f);
 		float height = (look.Zoomed ? 60f : 122f);
 		float barWidth = (look.Zoomed ? 10f : 11f);
-		StatusLine(g, look, s, 22f, look.Zoomed ? 25f : 27f, look.Zoomed ? 11f : 12f);
+		if (look.Status)
+		{
+			StatusLine(g, look, s, 22f, look.Zoomed ? 25f : 27f, look.Zoomed ? 11f : 12f);
+		}
 		float lx = 14f;
 		float letterY = top + height + 14f;
 		void Bar(string letter, double v, Color c, float x)
@@ -705,14 +738,16 @@ internal static class HudRenderer
 		Size size = LogicalSize(look);
 		bool o = look.Outlined;
 		float cx = (float)size.Width / 2f;
-		Panel(g, look, size, 10f);
-		Color tc = StatusColor(s.Active);
-		if (o)
+		if (look.Status)
 		{
-			Dot(g, Color.FromArgb(200, 0, 0, 0), cx, 18f, 5.2f);
+			Color tc = StatusColor(s.Active);
+			if (o)
+			{
+				Dot(g, Color.FromArgb(200, 0, 0, 0), cx, 18f, 5.2f);
+			}
+			Dot(g, tc, cx, 18f, 3.5f);
+			Text(g, s.Active ? "DRIVE" : "STBY", 10f, tc, cx, 36f, StringAlignment.Center, o);
 		}
-		Dot(g, tc, cx, 18f, 3.5f);
-		Text(g, s.Active ? "DRIVE" : "STBY", 10f, tc, cx, 36f, StringAlignment.Center, o);
 		DrawTrack(g, 10f, 50f, size.Width - 20, 6f, s.Steering, s.Active, o);
 		if (look.Numbers)
 		{
@@ -740,7 +775,6 @@ internal static class HudRenderer
 	{
 		Size size = LogicalSize(look);
 		bool o = look.Outlined;
-		Panel(g, look, size, 10f);
 		float x = 20f;
 		float w = size.Width - (look.Numbers ? 70 : 40);
 		float mid = x + w / 2f;

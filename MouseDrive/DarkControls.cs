@@ -1704,8 +1704,15 @@ internal sealed class Stepper : PaintedControl
 		OnMouseDown(e);
 	}
 
+	// Only once clicked or tabbed into: on a scrolling page, the wheel passing over it must scroll the page
+	// instead of changing the value.
 	protected override void OnMouseWheel(MouseEventArgs e)
 	{
+		if (!Focused)
+		{
+			base.OnMouseWheel(e);
+			return;
+		}
 		Value += Math.Sign(e.Delta) * Increment;
 		if (e is HandledMouseEventArgs h)
 		{

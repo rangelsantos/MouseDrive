@@ -41,6 +41,9 @@ public class AppSettings
 
 	public bool HudNumbers { get; set; } = true;
 
+	// The driving/standby line and the profile name.
+	public bool HudStatus { get; set; } = true;
+
 	public bool HudFade { get; set; } = false;
 
 	public bool HudInStandby { get; set; } = false;
@@ -65,7 +68,7 @@ public class AppSettings
 
 	// The app-wide part of the look; MainForm.CurrentLook() adds the profile's rotation and the bar.
 	[JsonIgnore]
-	public HudLook Look => new HudLook(HudStyle, HudWheel, HudZoom, HudNumbers, HudBackground);
+	public HudLook Look => new HudLook(HudStyle, HudWheel, HudZoom, HudNumbers, HudBackground, Status: HudStatus);
 
 	public static AppSettings Load()
 	{
