@@ -99,6 +99,7 @@ public static class ProfileManager
 				p.Throttle.Upgrade();
 				p.Brake.Upgrade();
 				p.Clutch.Upgrade();
+				p.WheelRotation = Math.Clamp(p.WheelRotation, Profile.MinWheelRotation, Profile.MaxWheelRotation);
 				if (p.Buttons.Any((ButtonBinding b) => b == null || b.Button < 1 || b.Button > byte.MaxValue || b.Vk < 0 || b.Vk > byte.MaxValue))
 				{
 					return null;

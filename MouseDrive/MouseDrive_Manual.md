@@ -56,6 +56,9 @@ something is missing; click it to see what and how to fix it.
    again to get the pointer back.
 3. In the game, set the steering **deadzone to 0** and **linearity / gamma to 1.0** (linear), so
    its curve doesn't stack on top of MouseDrive's. The car's steering lock is still the game's.
+4. Note the game's **steering rotation** (also called degrees of rotation or steering lock, often
+   900°) and set the same value in **Wheel rotation** on the HUD tab, so the HUD wheel turns like
+   the game's.
 
 > If the game binds the F9 key instead of the axis, move the mouse first and press F9 only to stop.
 
@@ -82,8 +85,9 @@ There is no physical center on a mouse: if the wheel drifts off center, press **
 
 ## The tabs
 
-- **Drive** — what the game is receiving. The wheel (the one chosen on the HUD tab) turns over a
-  scale from full left to full right, with the steering in percent under it; the white triangle
+- **Drive** — what the game is receiving. The wheel (the one chosen on the HUD tab, turning as far as
+  its **Wheel rotation**) sits over a scale of the axis from full left to full right, with the
+  steering in percent under it; the white triangle
   is the mouse before deadzone, expo and smoothing. Clutch and brake stand on the left and the
   throttle on the right, each with its force, its vJoy axis and its key; on a bar, the white tick is
   the initial force (shown above 0%) and the amber line the maximum force (shown below 100%), and a pedal that is off shows as a dashed
@@ -109,8 +113,8 @@ There is no physical center on a mouse: if the wheel drifts off center, press **
   The three pedals sit side by side with their live force and key; click one to edit its force
   range, press and release times and axis inversion below a graph of one key press. Settings are
   saved per profile.
-- **HUD** — an overlay over the game in four styles, with the pedals, a choice of wheel, a wheel
-  zoom, size, opacity, background, numbers, fade when straight, and position. It is click-through
+- **HUD** — an overlay over the game in four styles, with the pedals, a choice of wheel, the wheel
+  rotation, a position bar, a wheel zoom, size, opacity, background, numbers, fade when straight, and position. It is click-through
   and never takes the focus. See [The HUD](#the-hud).
 
 When adding or editing a vJoy binding, **Esc** cancels. **Backspace** clears an existing key
@@ -180,12 +184,12 @@ other global bindings, keys still reach the foreground application.
 ## The HUD
 
 The HUD shows the steering sent to the game and the pedals you use. Its settings are the same for
-every profile.
+every profile, except **Wheel rotation**, which is saved with the profile.
 
 | Style | What it shows |
 |---|---|
-| **Full** | Status and profile name, the wheel, the steering in percent and as a bar, and each pedal with its number |
-| **Classic** | The wheel, with clutch and brake bars on the left and throttle on the right, as in a car |
+| **Full** | Status and profile name, the wheel, the position bar, and each pedal with its number |
+| **Classic** | The wheel and the position bar, with clutch and brake bars on the left and throttle on the right, as in a car |
 | **Column** | A narrow vertical strip for a screen edge: the steering as a small bar, the pedals under it |
 | **Minimal** | Two thin lines: the steering on top; below it the brake grows left of center and the throttle right |
 
@@ -194,8 +198,18 @@ every profile.
   round with a flat bottom, alcantara with a yellow center stripe, a carbon center with buttons,
   and a display that shows the steering under shift lights that follow the throttle. While driving,
   a thin cyan line runs around the wheel.
+- **Position bar** (Full and Classic) — **Auto**, **Show** or **Hide** for the steering bar under
+  the wheel: the axis from full left to full right, filled from the center. Past one full turn the
+  wheel looks the same at angles a turn apart (+45° and +405°), and the bar tells them apart. Auto,
+  the default, shows it when the active profile's rotation is above 360°. Column and Minimal are a
+  bar already and always show it.
+- **Wheel rotation** (per profile) — the game's steering rotation, lock to lock, from 180° to 1080°
+  in steps of 10°; the buttons under it pick 180, 360, 540, 720, 900 or 1080°. New profiles start at
+  360°. The HUD, Drive and compact wheels turn half of it each way at full lock, so 450° at 900°.
+  What goes to vJoy doesn't change, so the feel in the game stays the same.
 - **Wheel zoom** (Full and Classic) — shows only the top 20% of the rim, enlarged into a wide strip.
-  Zoomed, the wheel turns at most 45° at full lock instead of 90°, so the top mark stays in view.
+  It turns like the whole wheel, so on a big turn the top mark leaves the strip; the position bar
+  then shows where the wheel is.
 - **Background** — the panel behind the HUD. At **0%** only the HUD itself remains; below 50%, text,
   bars and the wheel get a dark outline so they still read over a bright sky or track. **Opacity**
   dims the whole HUD, panel included.

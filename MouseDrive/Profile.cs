@@ -7,7 +7,15 @@ namespace MouseDrive;
 // a file written by an older version must still load, with defaults for what it doesn't have.
 public class Profile
 {
+	public const int MinWheelRotation = 180;
+
+	public const int MaxWheelRotation = 1080;
+
 	public string Name { get; set; } = "Default";
+
+	// Lock to lock, in degrees, as set in the game: the HUD wheel turns half of it each way. Only the
+	// drawing uses it; the vJoy axis is the same at any rotation.
+	public int WheelRotation { get; set; } = 360;
 
 	// 1..100: how little mouse travel takes the wheel from center to full lock (see MainForm.CountsToFullLock).
 	public int Sensitivity { get; set; } = 50;

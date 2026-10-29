@@ -49,6 +49,13 @@ public partial class MainForm
 
 	private const float HudOptionWidth = 180f;
 
+	private const float RotationStepperWidth = 96f;
+
+	private const int RotationStep = 10;
+
+	// The usual lock-to-lock settings in racing games; any step in between is a custom value.
+	private static readonly int[] RotationPresets = new int[6] { 180, 360, 540, 720, 900, 1080 };
+
 	// The full window is resizable in height only; the pages scroll.
 	private const int DefaultHeight = 576;
 
@@ -104,6 +111,10 @@ public partial class MainForm
 
 	private KeyLegend legend;
 
+	private Stepper numRotation;
+
+	private Segmented segRotation;
+
 	private TravelRuler ruler;
 
 	private Slider tbSensitivity;
@@ -151,6 +162,10 @@ public partial class MainForm
 	private Segmented segWheel;
 
 	private Caption capWheel;
+
+	private Segmented segBar;
+
+	private Caption capBar;
 
 	private ToggleSwitch swHudZoom;
 
@@ -1241,6 +1256,20 @@ public partial class MainForm
 		return Scroller(t);
 	}
 
+	// A rotation that isn't a preset leaves every preset unselected.
+	private void SyncRotationPresets()
+	{
+		int i = Array.IndexOf(RotationPresets, numRotation.Value);
+		if (i >= 0)
+		{
+			segRotation.SelectedIndex = i;
+		}
+		else
+		{
+			segRotation.ClearSelection();
+		}
+	}
+
 	private void UpdateRuler()
 	{
 		ruler.SetCurve((double)tbDeadzone.Value / 100.0, (double)tbExpo.Value / 100.0, FullLockMm(tbSensitivity.Value));
@@ -2073,6 +2102,19 @@ public partial class MainForm
 			settings.HudWheel = (HudWheel)segWheel.SelectedIndex;
 			ApplyLook();
 		};
+		capBar = new Caption
+		{
+			Text = "Position bar",
+			Hint = " "
+		};
+		segBar = AddOptionRow(card, ref cr, capBar, new string[3] { "Auto", "Show", "Hide" }, "Position bar");
+		toolTip.SetToolTip(segBar, "The axis bar under the wheel, in Full and Classic. Auto shows it when this profile's wheel turns more than 360°, where the wheel alone looks the same a turn apart");
+		segBar.SelectedIndexChanged += (object? s, EventArgs e) =>
+		{
+			settings.HudPositionBar = (HudElementMode)segBar.SelectedIndex;
+			RefreshHudElementHints();
+			ApplyLook();
+		};
 		swHudZoom = Switch("Wheel zoom", "only the top 20% of the rim", (object? s, EventArgs e) =>
 		{
 			settings.HudZoom = swHudZoom.Checked;
@@ -2106,6 +2148,62 @@ public partial class MainForm
 			ApplyLook();
 		};
 		AddRow(t, ref row, card, SizeType.AutoSize, 0);
+		TableLayoutPanel rotationCard = Card();
+		int gr = 0;
+		AddRow(rotationCard, ref gr, Header("Wheel rotation", ScopeTag(perProfile: true)), SizeType.AutoSize, 0, fill: true, 6);
+		numRotation = new Stepper
+		{
+			Label = "",
+			Unit = "°",
+			Description = "Wheel rotation",
+			Increment = RotationStep,
+			Maximum = Profile.MaxWheelRotation,
+			Minimum = Profile.MinWheelRotation,
+			Value = new Profile().WheelRotation,
+			Height = 30
+		};
+		toolTip.SetToolTip(numRotation, "The game's steering rotation, lock to lock. Click a side, use the arrow keys or the mouse wheel: " + RotationStep + "° a step");
+		AddCaptionRow(rotationCard, ref gr, new Caption
+		{
+			Text = "Rotation",
+			Hint = "lock to lock, as set in the game"
+		}, numRotation, RotationStepperWidth);
+		segRotation = new Segmented
+		{
+			Items = Array.ConvertAll(RotationPresets, (int d) => d + "°"),
+			Text = "Rotation presets",
+			AccessibleName = "Rotation presets",
+			Height = 30,
+			Margin = new Padding(0, 0, 0, 6)
+		};
+		AddRow(rotationCard, ref gr, segRotation, SizeType.AutoSize, 0);
+		Label rotationNote = new Label
+		{
+			Text = "The HUD and Drive wheels turn like the game's. The vJoy axis doesn't change.",
+			AutoSize = true,
+			ForeColor = Theme.Faint,
+			Font = Theme.Small,
+			Margin = Padding.Empty
+		};
+		AddRow(rotationCard, ref gr, rotationNote, SizeType.AutoSize, 0, fill: false);
+		AddRow(t, ref row, rotationCard, SizeType.AutoSize, 0);
+		numRotation.ValueChanged += (object? s, EventArgs e) =>
+		{
+			SyncRotationPresets();
+			if (!loading)
+			{
+				SaveActiveProfile();
+				RefreshHudElementHints();
+				RefreshLook();
+			}
+		};
+		segRotation.SelectedIndexChanged += (object? s, EventArgs e) =>
+		{
+			if (segRotation.SelectedIndex >= 0)
+			{
+				numRotation.Value = RotationPresets[segRotation.SelectedIndex];
+			}
+		};
 		TableLayoutPanel pedalCard = Card();
 		int pc = 0;
 		AddRow(pedalCard, ref pc, Header("Pedals on HUD"), SizeType.AutoSize, 0, fill: false, 6);
@@ -2202,28 +2300,51 @@ public partial class MainForm
 
 	private void ConfigurePreview()
 	{
-		hudPreview.Configure(settings.Look, settings.HudOpacity, tbHudSize.Value);
+		hudPreview.Configure(CurrentLook(), settings.HudOpacity, tbHudSize.Value);
 	}
 
-	// Style, wheel, zoom, numbers and background all change the drawing; the wheel options only apply to the
-	// styles that have one.
+	// Style, wheel, zoom, bar, numbers and background all change the drawing; the wheel options only apply to
+	// the styles that have one.
 	private void ApplyLook()
 	{
 		bool hasWheel = settings.Look.HasWheel;
 		segWheel.Enabled = hasWheel;
 		capWheel.Dim = !hasWheel;
+		segBar.Enabled = hasWheel;
+		capBar.Dim = !hasWheel;
 		swHudZoom.Enabled = hasWheel;
 		if (loading)
 		{
 			return;
 		}
-		overlay?.SetLook(settings.Look);
-		ConfigurePreview();
+		RefreshLook();
 		SaveSettingsSoon();
+	}
+
+	// The look also follows the profile's rotation, so a profile switch or a new rotation redraws without
+	// touching the app settings.
+	private void RefreshLook()
+	{
+		overlay?.SetLook(CurrentLook());
+		ConfigurePreview();
 	}
 
 	// One line: a caption with a hint on the left, a small segmented choice on the right.
 	private Segmented AddOptionRow(TableLayoutPanel t, ref int row, Caption caption, string[] items, string name)
+	{
+		Segmented seg = new Segmented
+		{
+			Items = items,
+			Text = name,
+			AccessibleName = name,
+			Height = 30
+		};
+		AddCaptionRow(t, ref row, caption, seg, HudOptionWidth);
+		return seg;
+	}
+
+	// A caption with a hint on the left and a control of the given width on the right.
+	private void AddCaptionRow(TableLayoutPanel t, ref int row, Caption caption, Control control, float width)
 	{
 		TableLayoutPanel line = new TableLayoutPanel
 		{
@@ -2235,25 +2356,17 @@ public partial class MainForm
 			ColumnStyles =
 			{
 				new ColumnStyle(SizeType.Percent, 100f),
-				new ColumnStyle(SizeType.Absolute, HudOptionWidth)
+				new ColumnStyle(SizeType.Absolute, width)
 			}
 		};
 		caption.BackColor = t.BackColor;
 		caption.Dock = DockStyle.Fill;
 		caption.Margin = Padding.Empty;
-		Segmented seg = new Segmented
-		{
-			Items = items,
-			Text = name,
-			AccessibleName = name,
-			Height = 30,
-			Dock = DockStyle.Fill,
-			Margin = new Padding(0, 1, 0, 1)
-		};
+		control.Dock = DockStyle.Fill;
+		control.Margin = new Padding(0, 1, 0, 1);
 		line.Controls.Add(caption, 0, 0);
-		line.Controls.Add(seg, 1, 0);
+		line.Controls.Add(control, 1, 0);
 		AddRow(t, ref row, line, SizeType.AutoSize, 0, fill: true, 4);
-		return seg;
 	}
 
 	private HudElementMode GetHudPedal(int index) => index switch
@@ -2301,6 +2414,17 @@ public partial class MainForm
 				capHudPedals[i].Hint = hint;
 			}
 		}
+		int rotation = profile.WheelRotation;
+		string barHint = settings.HudPositionBar switch
+		{
+			HudElementMode.Show => "Always shown",
+			HudElementMode.Hide => "Always hidden",
+			_ => (HudBarOn(HudElementMode.Auto, rotation) ? "Shown: " : "Hidden: ") + rotation + "° wheel",
+		};
+		if (capBar.Hint != barHint)
+		{
+			capBar.Hint = barHint;
+		}
 	}
 
 	private void ApplySettingsToUi()
@@ -2314,6 +2438,7 @@ public partial class MainForm
 		{
 			segHudPedals[i].SelectedIndex = (int)GetHudPedal(i);
 		}
+		segBar.SelectedIndex = (int)settings.HudPositionBar;
 		RefreshHudElementHints();
 		ApplyLook();
 		tbHudOpacity.Value = settings.HudOpacity;
@@ -2342,6 +2467,8 @@ public partial class MainForm
 		tbSelfCenter.Value = profile.SelfCentering;
 		swInvert.Checked = profile.InvertSteering;
 		swHideCursor.Checked = profile.HideCursor;
+		numRotation.Value = profile.WheelRotation;
+		SyncRotationPresets();
 		ApplyPedalToUi();
 		CenterSteering();
 		RebuildBindingRows();
@@ -2353,6 +2480,7 @@ public partial class MainForm
 		RefreshHudElementHints();
 		RefreshProfileUi();
 		loading = false;
+		RefreshLook();
 		lblSaved.Text = "Saved";
 		lblSaved.ForeColor = Theme.Faint;
 	}
@@ -2367,6 +2495,7 @@ public partial class MainForm
 		}
 		if (compact)
 		{
+			compactMonitor.Rotation = profile.WheelRotation;
 			compactMonitor.State = st;
 			SetText(lblCompactSteering, "Steering " + HudRenderer.Percent(st.Steering));
 			return;
@@ -2375,7 +2504,7 @@ public partial class MainForm
 		{
 		case 0:
 		{
-			monitor.View = new DriveView(st.Steering, wheel, st.Active, settings.HudWheel, DrivePedalView(0), DrivePedalView(1), DrivePedalView(2));
+			monitor.View = new DriveView(st.Steering, wheel, st.Active, settings.HudWheel, DrivePedalView(0), DrivePedalView(1), DrivePedalView(2), profile.WheelRotation);
 			int n = Math.Min(vjoyButtonCount, LampStrip.MaxShown);
 			bool[] bound = new bool[n];
 			bool[] on = new bool[n];

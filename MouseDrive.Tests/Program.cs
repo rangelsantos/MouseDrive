@@ -94,7 +94,7 @@ internal static class Program
 			Use(form, new ButtonBinding { Vk = (int)Keys.A }, new ButtonBinding { Vk = (int)Keys.B });
 			Call(form, "OnKeyDown", (int)Keys.A);
 			Call(form, "OnKeyDown", (int)Keys.B);
-			Find(form).OfType<Stepper>().First().Value = 2;
+			Find(form).OfType<Stepper>().First((Stepper s) => s.Description == "vJoy button").Value = 2;
 			Require(VJoy.Buttons[1]);
 			Call(form, "OnKeyUp", (int)Keys.B);
 			Require(!VJoy.Buttons[1]);

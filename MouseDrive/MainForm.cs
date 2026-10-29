@@ -349,6 +349,7 @@ public partial class MainForm : Form
 		profile.SelfCentering = tbSelfCenter.Value;
 		profile.InvertSteering = swInvert.Checked;
 		profile.HideCursor = swHideCursor.Checked;
+		profile.WheelRotation = numRotation.Value;
 		saveTimer.Stop();
 		saveTimer.Start();
 		lblSaved.Text = "Saving…";
@@ -804,11 +805,30 @@ public partial class MainForm : Form
 		};
 	}
 
+	// Past one full turn, wheel angles a turn apart look the same, so Auto adds the axis bar from there.
+	private const int BarAutoAboveDegrees = 360;
+
+	internal static bool HudBarOn(HudElementMode mode, int rotation) => mode switch
+	{
+		HudElementMode.Show => true,
+		HudElementMode.Hide => false,
+		_ => rotation > BarAutoAboveDegrees
+	};
+
+	private HudLook CurrentLook()
+	{
+		return settings.Look with
+		{
+			Rotation = profile.WheelRotation,
+			Bar = HudBarOn(settings.HudPositionBar, profile.WheelRotation)
+		};
+	}
+
 	private void EnsureOverlay()
 	{
 		if (overlay == null || overlay.IsDisposed)
 		{
-			overlay = new OverlayForm(settings.Look, CurrentHudState());
+			overlay = new OverlayForm(CurrentLook(), CurrentHudState());
 			overlay.SetOpacityPercent(settings.HudOpacity);
 			overlay.SetFade(settings.HudFade);
 			overlay.DoneClicked += EndHudPosition;

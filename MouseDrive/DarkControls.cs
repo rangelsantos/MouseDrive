@@ -690,6 +690,16 @@ internal sealed class Segmented : PaintedControl
 		Invalidate();
 	}
 
+	// For a value that none of the items stands for (a custom wheel rotation); no event.
+	public void ClearSelection()
+	{
+		if (selected != -1)
+		{
+			selected = -1;
+			Invalidate();
+		}
+	}
+
 	protected override void OnEnabledChanged(EventArgs e)
 	{
 		Invalidate();
@@ -1165,6 +1175,8 @@ internal sealed class SteeringMonitor : PaintedControl
 {
 	private HudState state;
 
+	private int rotation = 360;
+
 	public HudState State
 	{
 		get
@@ -1176,6 +1188,23 @@ internal sealed class SteeringMonitor : PaintedControl
 			if (value.Steering != state.Steering || value.Active != state.Active)
 			{
 				state = value;
+				Invalidate();
+			}
+		}
+	}
+
+	// The profile's lock to lock, in degrees.
+	public int Rotation
+	{
+		get
+		{
+			return rotation;
+		}
+		set
+		{
+			if (value != rotation)
+			{
+				rotation = value;
 				Invalidate();
 			}
 		}
@@ -1195,7 +1224,7 @@ internal sealed class SteeringMonitor : PaintedControl
 		float s = Math.Min((float)Width / (float)HudRenderer.MonitorWidth, (float)Height / (float)HudRenderer.MonitorHeight);
 		g.TranslateTransform(((float)Width - (float)HudRenderer.MonitorWidth * s) / 2f, ((float)Height - (float)HudRenderer.MonitorHeight * s) / 2f);
 		g.ScaleTransform(s, s);
-		HudRenderer.DrawMonitor(g, state);
+		HudRenderer.DrawMonitor(g, state, rotation);
 	}
 }
 
@@ -1546,12 +1575,28 @@ internal sealed class KeyLegend : PaintedControl
 	}
 }
 
-// "‹  BTN 4  ›": picks a vJoy button number. Click a side, use the arrows or the mouse wheel.
+// "‹  BTN 4  ›": picks a number, by default a vJoy button. Click a side, use the arrows or the mouse wheel.
 internal sealed class Stepper : PaintedControl
 {
 	private int value = 1;
 
+	private int minimum = 1;
+
 	private int maximum = 16;
+
+	public int Minimum
+	{
+		get
+		{
+			return minimum;
+		}
+		set
+		{
+			minimum = value;
+			maximum = Math.Max(minimum, maximum);
+			Value = this.value;
+		}
+	}
 
 	public int Maximum
 	{
@@ -1561,10 +1606,21 @@ internal sealed class Stepper : PaintedControl
 		}
 		set
 		{
-			maximum = Math.Max(1, value);
+			maximum = Math.Max(minimum, value);
 			Value = this.value;
 		}
 	}
+
+	public int Increment { get; set; } = 1;
+
+	// Drawn small before the number; empty for none.
+	public string Label { get; set; } = "BTN";
+
+	// Drawn right after the number, like "°".
+	public string Unit { get; set; } = "";
+
+	// What a screen reader says before the value.
+	public string Description { get; set; } = "vJoy button";
 
 	public int Value
 	{
@@ -1574,11 +1630,11 @@ internal sealed class Stepper : PaintedControl
 		}
 		set
 		{
-			int v = Math.Min(Math.Max(value, 1), maximum);
+			int v = Math.Min(Math.Max(value, minimum), maximum);
 			if (v != this.value)
 			{
 				this.value = v;
-				AccessibleName = "vJoy button " + v;
+				AccessibleName = Description + " " + v + Unit;
 				Text = AccessibleName;
 				Invalidate();
 				this.ValueChanged?.Invoke(this, EventArgs.Empty);
@@ -1606,13 +1662,19 @@ internal sealed class Stepper : PaintedControl
 		g.Clear(ParentBack);
 		FillRounded(g, BackColor, new RectangleF(0f, 0f, Width - 1, Height - 1), 3f);
 		Color arrow = (hover ? Color.White : Theme.Muted);
-		TextRenderer.DrawText(g, "‹", Theme.Body, new Rectangle(0, 0, 16, Height), (value > 1) ? arrow : Theme.Faint, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+		TextRenderer.DrawText(g, "‹", Theme.Body, new Rectangle(0, 0, 16, Height), (value > minimum) ? arrow : Theme.Faint, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
 		TextRenderer.DrawText(g, "›", Theme.Body, new Rectangle(Width - 16, 0, 16, Height), (value < maximum) ? arrow : Theme.Faint, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-		Size ls = TextRenderer.MeasureText(g, "BTN", Theme.Header, Size.Empty, TextFormatFlags.NoPadding);
-		Size vs = TextRenderer.MeasureText(g, value.ToString(), Theme.Body, Size.Empty, TextFormatFlags.NoPadding);
-		int x = (Width - ls.Width - 4 - vs.Width) / 2;
-		TextRenderer.DrawText(g, "BTN", Theme.Header, new Point(x, (Height - ls.Height) / 2 + 1), Theme.Faint, TextFormatFlags.NoPadding);
-		TextRenderer.DrawText(g, value.ToString(), Theme.Body, new Point(x + ls.Width + 4, (Height - vs.Height) / 2), Color.White, TextFormatFlags.NoPadding);
+		string shown = value + Unit;
+		bool labeled = !string.IsNullOrEmpty(Label);
+		Size ls = (labeled ? TextRenderer.MeasureText(g, Label, Theme.Header, Size.Empty, TextFormatFlags.NoPadding) : Size.Empty);
+		int gap = (labeled ? 4 : 0);
+		Size vs = TextRenderer.MeasureText(g, shown, Theme.Body, Size.Empty, TextFormatFlags.NoPadding);
+		int x = (Width - ls.Width - gap - vs.Width) / 2;
+		if (labeled)
+		{
+			TextRenderer.DrawText(g, Label, Theme.Header, new Point(x, (Height - ls.Height) / 2 + 1), Theme.Faint, TextFormatFlags.NoPadding);
+		}
+		TextRenderer.DrawText(g, shown, Theme.Body, new Point(x + ls.Width + gap, (Height - vs.Height) / 2), Color.White, TextFormatFlags.NoPadding);
 		if (Focused && ShowFocusCues)
 		{
 			using Pen fp = new Pen(Theme.Accent, 1f);
@@ -1627,11 +1689,11 @@ internal sealed class Stepper : PaintedControl
 			Focus();
 			if (e.X < Width / 2)
 			{
-				Value--;
+				Value -= Increment;
 			}
 			else
 			{
-				Value++;
+				Value += Increment;
 			}
 		}
 		base.OnMouseDown(e);
@@ -1644,7 +1706,7 @@ internal sealed class Stepper : PaintedControl
 
 	protected override void OnMouseWheel(MouseEventArgs e)
 	{
-		Value += Math.Sign(e.Delta);
+		Value += Math.Sign(e.Delta) * Increment;
 		if (e is HandledMouseEventArgs h)
 		{
 			h.Handled = true;
@@ -1666,12 +1728,12 @@ internal sealed class Stepper : PaintedControl
 	{
 		if (e.KeyCode == Keys.Left || e.KeyCode == Keys.Down)
 		{
-			Value--;
+			Value -= Increment;
 			e.Handled = true;
 		}
 		else if (e.KeyCode == Keys.Right || e.KeyCode == Keys.Up)
 		{
-			Value++;
+			Value += Increment;
 			e.Handled = true;
 		}
 		base.OnKeyDown(e);
@@ -1762,10 +1824,18 @@ internal sealed class HudPreview : PaintedControl
 			}
 			g.ResetClip();
 		}
+		// A note sits at the bottom; the HUD fits above it, or the note would cover its bottom row (the position bar).
+		Rectangle nr = Rectangle.Empty;
+		if (note.Length > 0)
+		{
+			Size ns = TextRenderer.MeasureText(note, Theme.Small);
+			nr = new Rectangle(8, Height - ns.Height - 14, ns.Width + 12, ns.Height + 6);
+		}
+		int area = ((note.Length > 0) ? (nr.Top - 2) : Height);
 		Size ls = HudRenderer.LogicalSize(look);
 		// The preview shows the HUD at a fixed share of its real size, so the Size slider still reads.
 		float baseScale = ((look.Style == HudStyle.Minimal) ? 0.9f : 0.45f);
-		float w = Math.Min(Math.Min((float)ls.Width * baseScale * (float)sizePercent / 100f, (float)(Height - 8) * (float)ls.Width / (float)ls.Height), Width - 16);
+		float w = Math.Min(Math.Min((float)ls.Width * baseScale * (float)sizePercent / 100f, (float)(area - 8) * (float)ls.Width / (float)ls.Height), Width - 16);
 		float s = w / (float)ls.Width;
 		int bw = Math.Max(1, (int)Math.Ceiling(w));
 		int bh = Math.Max(1, (int)Math.Ceiling((float)ls.Height * s));
@@ -1782,12 +1852,10 @@ internal sealed class HudPreview : PaintedControl
 		{
 			Matrix33 = (float)((double)opacity / 100.0 * fade)
 		});
-		g.DrawImage(bmp, new Rectangle((Width - bw) / 2, (Height - bh) / 2, bw, bh), 0, 0, bw, bh, GraphicsUnit.Pixel, ia);
+		g.DrawImage(bmp, new Rectangle((Width - bw) / 2, (area - bh) / 2, bw, bh), 0, 0, bw, bh, GraphicsUnit.Pixel, ia);
 		// The preview always shows the style; a note at the bottom says when the real HUD is hidden.
 		if (note.Length > 0)
 		{
-			Size ns = TextRenderer.MeasureText(note, Theme.Small);
-			Rectangle nr = new Rectangle(8, Height - ns.Height - 14, ns.Width + 12, ns.Height + 6);
 			FillRounded(g, Color.FromArgb(200, 10, 13, 19), nr, 4f);
 			TextRenderer.DrawText(g, note, Theme.Small, nr, Theme.Warn, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
 		}

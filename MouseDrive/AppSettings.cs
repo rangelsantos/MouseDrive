@@ -51,6 +51,9 @@ public class AppSettings
 
 	public HudElementMode HudClutch { get; set; } = HudElementMode.Auto;
 
+	// The axis bar under the wheel in Full and Classic. Auto shows it when the profile's wheel turns more than a full turn.
+	public HudElementMode HudPositionBar { get; set; } = HudElementMode.Auto;
+
 	public bool TopMost { get; set; } = true;
 
 	public bool CloseToTray { get; set; } = false;
@@ -60,6 +63,7 @@ public class AppSettings
 	// Client height of the full window in pixels, as the user dragged it; 0 means the default.
 	public int WindowHeight { get; set; } = 0;
 
+	// The app-wide part of the look; MainForm.CurrentLook() adds the profile's rotation and the bar.
 	[JsonIgnore]
 	public HudLook Look => new HudLook(HudStyle, HudWheel, HudZoom, HudNumbers, HudBackground);
 

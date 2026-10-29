@@ -77,7 +77,7 @@ installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Neve
 | `OverlayForm.cs` | Click-through HUD: per-pixel-alpha layered window (`UpdateLayeredWindow`), never activates; position mode with Done; notices |
 | `Theme.cs` | Palette and fonts |
 | `BrandIcon.cs` | Window and tray icons from the embedded `MouseDrive.ico`, and the "driving" variant with a red dot |
-| `AppSettings.cs` | App-wide settings in `<exe>\settings.json` (HUD look and pedals on HUD, on top, tray, compact, window height); maps the old style names Wheel/Bar on load |
+| `AppSettings.cs` | App-wide settings in `<exe>\settings.json` (HUD look, pedals and position bar on HUD, on top, tray, compact, window height); maps the old style names Wheel/Bar on load |
 | `Profile.cs` / `ProfileManager.cs` | Per-car/game settings, JSON files in `<exe>\Profiles\`, `_active.txt`; import/export, rename |
 | `Hotkey.cs` | The rebindable commands (`Hotkey.All`) |
 | `KeyboardHook.cs` | `WH_KEYBOARD_LL` hook; drops auto-repeat; `ReleaseStaleKeys()`; mouse buttons join through `MouseButton()` |
@@ -107,6 +107,11 @@ installs a global keyboard hook, acquires vJoy device 1 and stays on top. **Neve
   thread. A textured wheel costs ~10 ms from scratch, so `HudWheels` draws it once per pixel size into layers
   and a frame only turns them (the light layers stay fixed). Keep a frame cheap: a test fails above 8 ms.
   Pedals on the HUD use `HudElementMode` (Auto = enabled with a key) via `MainForm.PedalOnHud()`.
+- **Wheel rotation:** `Profile.WheelRotation` (180..1080, default 360, clamped on load) is the game's lock to
+  lock, set in the per-profile "Wheel rotation" card on the HUD tab. It only turns the drawn wheels (HUD, Drive, compact) by `Rotation / 2` at full lock; the vJoy output
+  and every readout and scale stay in percent of the axis. `CurrentLook()` adds it and the position bar
+  (`HudBarOn()`: Auto above 360°, Full and Classic only) to `settings.Look`; `RefreshLook()` redraws on a
+  profile switch or a new rotation without saving the settings. The HUD shows no degrees.
 - **HUD visibility** is decided in one place, `UpdateOverlayVisibility()`: while driving, while being
   positioned, in standby if "Show in standby" is on, and briefly for a notice (`HudToast`).
 - **Saving:** `SaveActiveProfile()` copies the UI into the profile at once and writes the file 300 ms

@@ -22,10 +22,14 @@ public enum HudWheel
 	Gt
 }
 
-// How the HUD looks: the app-wide options that change the drawing but not the live values.
-public readonly record struct HudLook(HudStyle Style, HudWheel Wheel, bool Zoom, bool Numbers, int Background)
+// How the HUD looks: the options that change the drawing but not the live values. Rotation is the active
+// profile's wheel rotation and Bar whether Full and Classic draw the axis bar; the rest is app-wide.
+public readonly record struct HudLook(HudStyle Style, HudWheel Wheel, bool Zoom, bool Numbers, int Background, int Rotation = 360, bool Bar = false)
 {
 	public bool HasWheel => Style == HudStyle.Full || Style == HudStyle.Classic;
+
+	// Degrees the wheel turns at full lock each way.
+	public float Lock => Rotation / 2f;
 
 	public bool Zoomed => Zoom && HasWheel;
 
@@ -63,7 +67,8 @@ public struct HudState
 public readonly record struct DrivePedal(string Name, string Axis, double Force, bool Enabled, double Initial, double Maximum, string Key, bool AxisMissing);
 
 // What the Drive monitor shows: the vJoy output, the wheel from the mouse before shaping, and the three pedals.
-public readonly record struct DriveView(double Steering, double Mouse, bool Active, HudWheel Wheel, DrivePedal Throttle, DrivePedal Brake, DrivePedal Clutch);
+// Rotation is the profile's lock to lock, which only turns the drawn wheel.
+public readonly record struct DriveView(double Steering, double Mouse, bool Active, HudWheel Wheel, DrivePedal Throttle, DrivePedal Brake, DrivePedal Clutch, int Rotation = 360);
 
 // Draws every HUD style in its own logical units; callers scale the Graphics to the size they want.
 internal static class HudRenderer
@@ -90,12 +95,10 @@ internal static class HudRenderer
 
 	public const int MonitorHeight = 200;
 
-	// The drawn wheel turns this far at full lock. It is a picture of the vJoy axis, not of the car's
-	// real steering lock, which the game decides.
-	private const float WheelTurnDegrees = 90f;
+	// Classic draws the axis bar under the wheel in this much extra height.
+	private const int ClassicBarHeight = 16;
 
-	// Zoomed, only the top 20% of the rim shows; at 45° the top mark is still inside it.
-	private const float ZoomTurnDegrees = 45f;
+	private const int ClassicZoomBarHeight = 12;
 
 	// A circle's top 20% is 0.4 r deep and 1.6 r wide.
 	private const float ZoomDepth = 0.4f;
@@ -109,7 +112,7 @@ internal static class HudRenderer
 			HudStyle.Full => look.Zoomed ? new Size(360, 132) : new Size(320, 232),
 			HudStyle.Column => new Size(72, 272),
 			HudStyle.Minimal => new Size(260, 44),
-			_ => look.Zoomed ? new Size(320, 112) : new Size(240, 236),
+			_ => look.Zoomed ? new Size(320, 112 + (look.Bar ? ClassicZoomBarHeight : 0)) : new Size(240, 236 + (look.Bar ? ClassicBarHeight : 0)),
 		};
 	}
 
@@ -133,9 +136,9 @@ internal static class HudRenderer
 	}
 
 	// The compact window's monitor, 240 x 200: a big wheel and the axis bar under it, without panel or text.
-	public static void DrawMonitor(Graphics g, HudState s)
+	public static void DrawMonitor(Graphics g, HudState s, int rotation)
 	{
-		DrawFlatWheel(g, 120f, 86f, 74f, s.Steering, s.Active);
+		DrawFlatWheel(g, 120f, 86f, 74f, s.Steering, s.Active, rotation / 2f);
 		DrawTrack(g, 30f, 180f, 180f, 8f, s.Steering, s.Active, outlined: false);
 	}
 
@@ -179,7 +182,7 @@ internal static class HudRenderer
 			Throttle = (v.Throttle.Enabled ? v.Throttle.Force : 0.0)
 		};
 		float r = scale * 0.78f;
-		float degrees = Turn(s, WheelTurnDegrees);
+		float degrees = Turn(s, v.Rotation / 2f);
 		if (v.Wheel == HudWheel.Gt)
 		{
 			HudWheels.RaceCar(g, s, outlined: false, cx, cy, r, degrees);
@@ -203,8 +206,8 @@ internal static class HudRenderer
 		TextRenderer.DrawText(g, "Mouse " + Percent(v.Mouse), Theme.Small, new Rectangle((int)mx + 11, captionY, 150, 15), Theme.Muted, TextFormatFlags.NoPadding);
 	}
 
-	// The wheel's top mark travels this arc: full left at nine o'clock, full right at three. Ticks every 10%,
-	// the live output fills from the top, and a triangle shows the mouse before deadzone, expo and smoothing.
+	// The axis on an arc: full left at nine o'clock, full right at three, whatever the wheel's rotation. Ticks
+	// every 10%, the live output fills from the top, and a triangle shows the mouse before deadzone, expo and smoothing.
 	private static void DriveScale(Graphics g, DriveView v, float cx, float cy, float scale, Color live)
 	{
 		RectangleF arc = new RectangleF(cx - scale, cy - scale, scale * 2f, scale * 2f);
@@ -512,11 +515,11 @@ internal static class HudRenderer
 	}
 
 	// The Drive monitor's line-art wheel, with the amber top mark that racing wheels have at twelve o'clock.
-	private static void DrawFlatWheel(Graphics g, float cx, float cy, float r, double steering, bool active)
+	private static void DrawFlatWheel(Graphics g, float cx, float cy, float r, double steering, bool active, float lockDegrees)
 	{
 		GraphicsState saved = g.Save();
 		g.TranslateTransform(cx, cy);
-		g.RotateTransform((float)Math.Clamp(steering, -1.0, 1.0) * WheelTurnDegrees);
+		g.RotateTransform((float)Math.Clamp(steering, -1.0, 1.0) * lockDegrees);
 		float rim = r * 0.16f;
 		float hub = r * 0.26f;
 		Color color = FrameColor(active);
@@ -566,13 +569,14 @@ internal static class HudRenderer
 		return (float)Math.Clamp(s.Steering, -1.0, 1.0) * full;
 	}
 
-	// The top 20% of the wheel, scaled up to fill the strip; the turn is halved so the mark stays in view.
+	// The top 20% of the wheel, scaled up to fill the strip and turned like the full wheel, so the top mark
+	// leaves the strip on a big turn; the axis bar shows where the wheel is then.
 	private static void ZoomRim(Graphics g, HudLook look, HudState s, float x, float y, float w, float h)
 	{
 		GraphicsState saved = g.Save();
 		g.SetClip(new RectangleF(x - 6f, y - 8f, w + 12f, h + 8f));
 		float r = Math.Min(w / ZoomChord, h / ZoomDepth);
-		Wheel(g, look, s, x + w / 2f, y + r * 1.08f, r, Turn(s, ZoomTurnDegrees));
+		Wheel(g, look, s, x + w / 2f, y + r * 1.08f, r, Turn(s, look.Lock));
 		g.Restore(saved);
 	}
 
@@ -615,16 +619,22 @@ internal static class HudRenderer
 			{
 				Text(g, "STEER " + Percent(s.Steering), 12f, A(Theme.Cyan, 0.95), (left + right - 18f) / 2f, 94f, StringAlignment.Center, o);
 			}
-			DrawTrack(g, left + 4f, 112f, right - left - 26f, 6f, s.Steering, s.Active, o);
+			if (look.Bar)
+			{
+				DrawTrack(g, left + 4f, 112f, right - left - 26f, 6f, s.Steering, s.Active, o);
+			}
 			return;
 		}
 		float cx = (left + right) / 2f;
-		Wheel(g, look, s, cx, 112f, 56f, Turn(s, WheelTurnDegrees));
+		Wheel(g, look, s, cx, 112f, 56f, Turn(s, look.Lock));
 		if (look.Numbers)
 		{
 			Text(g, "STEER " + Percent(s.Steering), 12f, A(Theme.Cyan, 0.95), cx, 196f, StringAlignment.Center, o);
 		}
-		DrawTrack(g, left + 4f, 210f, right - left - 8f, 6f, s.Steering, s.Active, o);
+		if (look.Bar)
+		{
+			DrawTrack(g, left + 4f, 210f, right - left - 8f, 6f, s.Steering, s.Active, o);
+		}
 	}
 
 	// ---------- Classic: the wheel, with clutch and brake on the left and throttle on the right ----------
@@ -671,12 +681,20 @@ internal static class HudRenderer
 			{
 				Text(g, Percent(s.Steering), 13f, A(Theme.Cyan, 0.95), (float)size.Width / 2f, 100f, StringAlignment.Center, o);
 			}
+			if (look.Bar)
+			{
+				DrawTrack(g, 72f, 109f, size.Width - 144, 5f, s.Steering, s.Active, o);
+			}
 			return;
 		}
-		Wheel(g, look, s, (float)size.Width / 2f, 118f, 58f, Turn(s, WheelTurnDegrees));
+		Wheel(g, look, s, (float)size.Width / 2f, 118f, 58f, Turn(s, look.Lock));
 		if (look.Numbers)
 		{
 			Text(g, "STEER " + Percent(s.Steering), 12f, A(Theme.Cyan, 0.95), (float)size.Width / 2f, 220f, StringAlignment.Center, o);
+		}
+		if (look.Bar)
+		{
+			DrawTrack(g, 40f, 232f, size.Width - 80, 5f, s.Steering, s.Active, o);
 		}
 	}
 
